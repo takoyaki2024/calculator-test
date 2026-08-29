@@ -3,7 +3,7 @@
 import tkinter as tk
 from tkinter import messagebox
 
-from calculator import evaluate_expression
+from calculator import evaluate_expression, percentage
 
 
 class CalculatorApp:
@@ -21,6 +21,7 @@ class CalculatorApp:
         entry.grid(row=0, column=0, columnspan=4, padx=10, pady=(10, 6))
         entry.focus_set()
         entry.bind("<Return>", lambda _event: self.calculate())
+        entry.bind("<Escape>", lambda _event: self.clear())
 
         memory_buttons = [("MC", self.memory_clear), ("MR", self.memory_recall), ("M+", self.memory_add), ("M-", self.memory_subtract)]
         for column, (label, command) in enumerate(memory_buttons):
@@ -42,8 +43,10 @@ class CalculatorApp:
             )
 
         action_row = 2 + (len(buttons) + 3) // 4
-        tk.Button(root, text="Clear", width=10, command=self.clear).grid(row=action_row, column=0, columnspan=2, padx=3, pady=6)
-        tk.Button(root, text="=", width=10, command=self.calculate).grid(row=action_row, column=2, columnspan=2, padx=3, pady=6)
+        tk.Button(root, text="⌫", width=6, command=self.backspace).grid(row=action_row, column=0, padx=3, pady=6)
+        tk.Button(root, text="%", width=6, command=self.apply_percentage).grid(row=action_row, column=1, padx=3, pady=6)
+        tk.Button(root, text="Clear", width=6, command=self.clear).grid(row=action_row, column=2, padx=3, pady=6)
+        tk.Button(root, text="=", width=6, command=self.calculate).grid(row=action_row, column=3, padx=3, pady=6)
 
         tk.Label(root, textvariable=self.result, font=("TkDefaultFont", 12, "bold")).grid(row=action_row + 1, column=0, columnspan=4, padx=8, pady=(4, 8))
         tk.Label(root, text="History").grid(row=action_row + 2, column=0, columnspan=4)
@@ -53,9 +56,23 @@ class CalculatorApp:
     def append(self, text: str) -> None:
         self.expression.set(self.expression.get() + text)
 
+    def backspace(self) -> None:
+        self.expression.set(self.expression.get()[:-1])
+
     def clear(self) -> None:
         self.expression.set("")
         self.result.set("Result: -")
+
+    def apply_percentage(self) -> None:
+        expression = self.expression.get()
+        try:
+            value = evaluate_expression(expression)
+        except (ValueError, ZeroDivisionError):
+            messagebox.showerror("Invalid input", "Enter a valid value before using percent.")
+            return
+        percent_value = percentage(value)
+        self.expression.set(f"{percent_value:g}")
+        self.result.set(f"Result: {percent_value:g}")
 
     def calculate(self) -> None:
         expression = self.expression.get()
