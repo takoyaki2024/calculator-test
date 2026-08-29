@@ -1,6 +1,6 @@
 import unittest
 
-from calculator import add, divide, multiply, subtract
+from calculator import add, divide, evaluate_expression, multiply, subtract
 
 
 class CalculatorTests(unittest.TestCase):
@@ -22,6 +22,34 @@ class CalculatorTests(unittest.TestCase):
     def test_divide_by_zero(self):
         with self.assertRaises(ZeroDivisionError):
             divide(1, 0)
+
+    def test_expression_precedence(self):
+        self.assertEqual(evaluate_expression("2 + 3 * 4"), 14)
+
+    def test_expression_parentheses(self):
+        self.assertEqual(evaluate_expression("(2 + 3) * 4"), 20)
+
+    def test_expression_unary_minus(self):
+        self.assertEqual(evaluate_expression("-5 + 2"), -3)
+
+    def test_expression_decimal(self):
+        self.assertAlmostEqual(evaluate_expression("1.5 * 2"), 3.0)
+
+    def test_expression_divide_by_zero(self):
+        with self.assertRaises(ZeroDivisionError):
+            evaluate_expression("10 / (5 - 5)")
+
+    def test_expression_rejects_names(self):
+        with self.assertRaises(ValueError):
+            evaluate_expression("open('file.txt')")
+
+    def test_expression_rejects_power(self):
+        with self.assertRaises(ValueError):
+            evaluate_expression("2 ** 8")
+
+    def test_expression_rejects_empty_input(self):
+        with self.assertRaises(ValueError):
+            evaluate_expression("   ")
 
 
 if __name__ == "__main__":
