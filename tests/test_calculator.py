@@ -1,6 +1,6 @@
 import unittest
 
-from calculator import add, divide, evaluate_expression, multiply, subtract
+from calculator import add, divide, evaluate_expression, multiply, percentage, subtract
 
 
 class CalculatorTests(unittest.TestCase):
@@ -22,6 +22,10 @@ class CalculatorTests(unittest.TestCase):
     def test_divide_by_zero(self):
         with self.assertRaises(ZeroDivisionError):
             divide(1, 0)
+
+    def test_percentage(self):
+        self.assertEqual(percentage(25), 0.25)
+        self.assertEqual(percentage(-50), -0.5)
 
     def test_expression_precedence(self):
         self.assertEqual(evaluate_expression("2 + 3 * 4"), 14)

@@ -34,6 +34,10 @@ def divide(a: float, b: float) -> float:
     return a / b
 
 
+def percentage(value: float) -> float:
+    return value / 100
+
+
 def evaluate_expression(expression: str) -> float:
     """Safely evaluate a basic arithmetic expression.
 
