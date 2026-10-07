@@ -20,7 +20,7 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Stage 1 Core/SQLite/scanner/classification/minimum library: implemented; automated tests pass.
 - Stage 2 manga reader/image viewer/video player: implemented; automated synthetic-media tests pass.
 - Stage 3 search/sort/thumbnail cache/UX: implemented; automated tests pass.
-- Stage 4 Windows packaged validation: first exact-commit run built the EXE and passed all tests, but the packaged video probe exited during its second playback before writing its report. Diagnostic checkpoints are being added before any behavior change.
+- Stage 4 Windows packaged validation: first run revealed that PowerShell did not wait for the GUI-subsystem EXE; the initial missing report and subsequent false-positive run were workflow launch races, not evidence of an app crash or PASS. The workflow now uses `Start-Process -Wait` and checks the returned process exit code.
 - Real Windows/user-media/outbound-connection gate: pending and must not be claimed by automation.
 
 ## Verified automated behavior

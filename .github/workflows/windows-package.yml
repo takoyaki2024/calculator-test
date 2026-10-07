@@ -27,15 +27,19 @@ jobs:
           $root = Join-Path $env:RUNNER_TEMP "local-media-smoke"
           New-Item -ItemType Directory -Force -Path $root | Out-Null
           $env:LOCAL_MEDIA_LIBRARY_ROOT = $root
-          & dist/LocalMediaLibrary/LocalMediaLibrary.exe --smoke
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = (Resolve-Path "dist/LocalMediaLibrary/LocalMediaLibrary.exe").Path
+          $process = Start-Process -FilePath $exe -ArgumentList "--smoke" -PassThru -Wait
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
       - name: Packaged real decode/control probe
         shell: pwsh
         run: |
-          & dist/LocalMediaLibrary/LocalMediaLibrary.exe --video-probe tests/fixtures/baseline.mp4 --probe-report dist/video-probe.json
-          if ($LASTEXITCODE -ne 0) {
+          $exe = (Resolve-Path "dist/LocalMediaLibrary/LocalMediaLibrary.exe").Path
+          $fixture = (Resolve-Path "tests/fixtures/baseline.mp4").Path
+          $report = Join-Path (Resolve-Path "dist").Path "video-probe.json"
+          $process = Start-Process -FilePath $exe -ArgumentList @("--video-probe", $fixture, "--probe-report", $report) -PassThru -Wait
+          if ($process.ExitCode -ne 0) {
             if (Test-Path dist/video-probe.json) { Get-Content dist/video-probe.json }
-            exit $LASTEXITCODE
+            exit $process.ExitCode
           }
           Get-Content dist/video-probe.json
       - uses: actions/upload-artifact@v4
