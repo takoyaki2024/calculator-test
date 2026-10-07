@@ -20,17 +20,17 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Stage 1 Core/SQLite/scanner/classification/minimum library: implemented; automated tests pass.
 - Stage 2 manga reader/image viewer/video player: implemented; automated synthetic-media tests pass.
 - Stage 3 search/sort/thumbnail cache/UX: implemented; automated tests pass.
-- Stage 4 automated validation: PASS at source checkpoint `5d47ca1b3426695c50f9c6bf43d8d63b9a32aecd`.
-- CI run `37645331585`: SUCCESS on Python 3.11 and 3.12.
-- Windows package run `37645331618`: SUCCESS. Tests, one-folder EXE, waited startup smoke, waited packaged video decode/control probe, and artifact upload passed.
+- Stage 4 automated validation: PASS at two-library source checkpoint `a8b2f9cbeaa8f071a54312a8a1d3b3fb694b9a90`.
+- CI run `37648590445`: SUCCESS on Python 3.11 and 3.12.
+- Windows package run `37648590418`: SUCCESS. Tests, one-folder EXE, waited startup smoke, waited packaged video decode/control probe, and artifact upload passed.
 - Packaged probe: 11 decoded video frames, 36 decoded audio buffers, pause/seek/resume/fullscreen state PASS. Visible display and audible speaker output remain explicitly unverified.
-- Windows artifact ID `11494067559`; outer artifact SHA-256 `f1d45dcf653c8da38d708725855ba66460406ec9ea423842e18d1a64aa532a76`.
-- Delivered inner `LocalMediaLibrary-Windows.zip`: 59,300,014 bytes; SHA-256 `720e640e3572040d803cf538133bad5ee064ba67d6468cbf9f9fa86e051ed452`; 266 archive entries; EXE and empty data directory present; no source, database or user media entries.
+- Windows artifact ID `11495271862`; outer artifact SHA-256 `a986c5409982bc37892fb996615d8107b4a3874e2ddb232d37b1f1d7e4938131`.
+- Delivered inner `LocalMediaLibrary-Windows.zip`: 59,299,504 bytes; SHA-256 `1675a4c4d26239074706a7f659e60c2213f52773a6d739df3a5b6c8d3f0b83c3`; 266 archive entries; EXE and empty data directory present; no source, database or user media entries.
 - Real Windows/user-media/outbound-connection gate: pending and must not be claimed by automation.
 
 ## Verified automated behavior
 
-- Idempotent scans; separate manga/image/video classification; Japanese and nested long paths.
+- Idempotent scans; two source/library categories (Manga and combined Image/Video); separate internal records; Japanese and nested long paths.
 - Natural page ordering; explicit source modes; temporary and unsupported files ignored; symlinks excluded.
 - Missing roots/items become unavailable without deleting database history.
 - Incomplete enumeration does not mark unseen records missing.
