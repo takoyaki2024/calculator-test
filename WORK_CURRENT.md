@@ -20,7 +20,7 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Stage 1 Core/SQLite/scanner/classification/minimum library: implemented; automated tests pass.
 - Stage 2 manga reader/image viewer/video player: implemented; automated synthetic-media tests pass.
 - Stage 3 search/sort/thumbnail cache/UX: implemented; automated tests pass.
-- Stage 4 Windows packaged validation: pending GitHub Actions exact-commit result.
+- Stage 4 Windows packaged validation: first exact-commit run built the EXE and passed all tests, but the packaged video probe exited during its second playback before writing its report. Diagnostic checkpoints are being added before any behavior change.
 - Real Windows/user-media/outbound-connection gate: pending and must not be claimed by automation.
 
 ## Verified automated behavior

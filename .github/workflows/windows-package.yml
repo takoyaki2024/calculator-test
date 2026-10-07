@@ -33,7 +33,10 @@ jobs:
         shell: pwsh
         run: |
           & dist/LocalMediaLibrary/LocalMediaLibrary.exe --video-probe tests/fixtures/baseline.mp4 --probe-report dist/video-probe.json
-          if ($LASTEXITCODE -ne 0) { Get-Content dist/video-probe.json; exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) {
+            if (Test-Path dist/video-probe.json) { Get-Content dist/video-probe.json }
+            exit $LASTEXITCODE
+          }
           Get-Content dist/video-probe.json
       - uses: actions/upload-artifact@v4
         with:
