@@ -1,35 +1,28 @@
 # Local Media Library
 
-A local-first Windows media library for already-saved manga and video files.
+Windows PC に保存済みの漫画・画像・動画を、完全ローカルで整理・閲覧するためのアプリです。
 
-## Scope
+- ダウンロード、ブラウザー拡張、外部API、ログイン、テレメトリはありません。
+- 原本の削除・移動・改名・上書きは行いません。
+- 漫画・画像・動画は独立した Library / Repository / Viewer として扱います。
+- LAN / iPhone は Phase 2 であり、この Windows Phase 1 には含みません。
 
-- Detect and index existing manga/video files without downloading, moving, or deleting originals.
-- Read manga and play video on Windows.
-- Open the library on an iPhone by scanning a QR code.
-- iPhone access is LAN-only and requires short-lived QR pairing.
-- Unauthenticated devices receive no library metadata, filenames, or thumbnails.
-- The existing downloader/browser-extension projects remain separate.
+## 開発実行
 
-## Architecture
+```powershell
+py -3.11 -m venv .venv
+.venv\Scripts\python -m pip install -e .[dev]
+.venv\Scripts\python -m local_media_library
+```
 
-- Library Core
-- Manga Reader
-- Video Player
-- Windows UI
-- LAN Viewer / API
-- iPhone Web UI
+データベースと再生成可能なサムネイルは、アプリの `data/` 以下に保存されます。開発実行時はリポジトリ直下、配布版はEXEの隣です。メディア原本とは分離されます。
 
-## Security baseline
+## フォルダ判定
 
-- LAN viewer is off by default and starts only when the user enables iPhone viewing.
-- Pairing QR uses a cryptographically random, short-lived one-time token.
-- A successful pairing receives a separate device credential.
-- Internet exposure, UPnP, router port forwarding, and cloud relay are out of scope.
-- The existing MangaReader localhost receiver is not reused or exposed.
-- Mobile access is read-only; it cannot delete or move original files.
-- No credentials, tokens, personal library paths, or user media are committed to this repository.
+登録時に `自動判定 / 漫画 / 画像 / 動画` を選べます。
 
-## Development rule
+- 自動判定では、同一ディレクトリに2枚以上の画像があり動画がない場合、そのディレクトリを漫画1作品として扱います。
+- 画像と動画が混在するディレクトリでは、画像は画像Library、動画は動画Libraryへ分離します。
+- 実データ構造が明確な場合は、フォルダ種別を明示すると推測を避けられます。
 
-Audit and test before implementation. Keep modules isolated so manga, video, LAN access, and UI can be changed independently.
+詳細は [Stage 0監査](docs/stage-0-audit.md) と [アーキテクチャ](docs/architecture.md) を参照してください。

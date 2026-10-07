@@ -1,0 +1,45 @@
+name: Windows package
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+      - name: Build portable folder
+        run: python -m PyInstaller --clean --noconfirm packaging/local_media_library.spec
+      - name: Packaged startup smoke
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "local-media-smoke"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $env:LOCAL_MEDIA_LIBRARY_ROOT = $root
+          & dist/LocalMediaLibrary/LocalMediaLibrary.exe --smoke
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Packaged real decode/control probe
+        shell: pwsh
+        run: |
+          & dist/LocalMediaLibrary/LocalMediaLibrary.exe --video-probe tests/fixtures/baseline.mp4 --probe-report dist/video-probe.json
+          if ($LASTEXITCODE -ne 0) { Get-Content dist/video-probe.json; exit $LASTEXITCODE }
+          Get-Content dist/video-probe.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalMediaLibrary-Windows
+          path: |
+            dist/LocalMediaLibrary-Windows.zip
+            dist/video-probe.json
+          retention-days: 7
+          if-no-files-found: error

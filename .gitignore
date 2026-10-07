@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+build/
+dist/
+data/
+*.spec.local
+*.log
+*.sqlite3*
+*.db*
+*.zip
+local_media_library.egg-info/
