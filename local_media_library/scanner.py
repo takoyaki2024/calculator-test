@@ -9,7 +9,7 @@ from .natural import natural_key
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"})
 VIDEO_EXTENSIONS = frozenset({".mp4", ".m4v", ".mkv", ".webm", ".mov", ".avi"})
 TEMPORARY_SUFFIXES = frozenset({".part", ".partial", ".tmp", ".crdownload", ".download"})
-SOURCE_MODES = frozenset({"auto", "manga", "image", "video"})
+SOURCE_MODES = frozenset({"auto", "manga", "gallery", "image", "video"})
 
 
 @dataclass(frozen=True)

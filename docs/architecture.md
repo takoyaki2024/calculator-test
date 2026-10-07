@@ -1,21 +1,20 @@
 # Architecture
 
 ```text
-Read-only media roots
-        |
-      Scanner
-        |
-  Library Service
-   /      |      \
-Manga   Images   Video
-Repos   Repo     Repo
-   \      |      /
-      SQLite
-        |
-Desktop pages and viewers
+Read-only roots: Manga | Image/Video
+                |             |
+              Scanner + Library Service
+                |             |
+           Manga Repo    Image Repo + Video Repo
+                \             /
+                     SQLite
+                       |
+       Manga page | Image/Video page | Settings
+                       |
+             Reader | Viewer | Player
 ```
 
-Only Core owns SQLite and source registration. Desktop pages call repositories and services. Playback consumes a `VideoItem`; it does not scan or mutate the library. A future Phase 2 LAN module may consume the same repository interfaces without importing Desktop UI.
+Only Core owns SQLite and source registration. Desktop pages call repositories and services. The combined Image/Video page merges repository results only for presentation; selecting an item routes it to the type-specific Viewer or Player. Playback consumes a `VideoItem`; it does not scan or mutate the library. A future Phase 2 LAN module may consume the same repository interfaces without importing Desktop UI.
 
 ## Original-file invariant
 

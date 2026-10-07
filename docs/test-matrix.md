@@ -3,7 +3,8 @@
 | Requirement | Automated evidence | Real Windows gate |
 |---|---|---|
 | Repeat scan / no duplicates | repository identity tests | rescan actual folder |
-| Manga/image/video classification | scanner and service tests | inspect actual saved layout |
+| Two source/library categories | manga/gallery scanner and Desktop UI tests | inspect actual saved layout |
+| Image/video internal routing | combined-library identity and Viewer/Player dispatch tests | open both types from one actual folder |
 | Japanese / long paths | scanner tests | packaged app on actual NTFS paths |
 | Missing / external drive | unavailable-retention tests | disconnect/reconnect if applicable |
 | Unsupported / broken / partial files | candidate/error-isolation tests | inspect representative damaged/in-progress data |

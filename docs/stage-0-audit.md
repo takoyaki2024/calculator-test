@@ -18,7 +18,7 @@
 
 ## Architecture decision
 
-The application is split into Core, three media modules and Desktop UI. UI modules never issue SQL. Manga, images and video have distinct records and repository APIs. Shared infrastructure is limited to source folders, scanning metadata, sort registration and cache location.
+The application is split into Core, three media modules and Desktop UI. UI modules never issue SQL. Manga, images and video have distinct records and repository APIs. The Desktop UI deliberately exposes only two libraries: Manga, and a combined Image/Video library. Shared infrastructure is limited to source folders, scanning metadata, sort registration and cache location.
 
 Source media is read-only. Initial scans enumerate and stat files. Decoding happens only in viewers or thumbnail generation. Cache and database live under `data/`, separate from media roots.
 
@@ -26,7 +26,7 @@ Source media is read-only. Initial scans enumerate and stat files. Decoding happ
 
 Supported initial image candidates: JPEG, PNG, WebP, BMP and GIF. Supported initial video candidates: MP4, M4V, MKV, WebM, MOV and AVI. An extension is a discovery hint, not proof of decodability.
 
-Folder mode can be explicit (`manga`, `image`, `video`) or `auto`. In auto mode, a directory containing at least two candidate images and no candidate video is a manga work. Mixed image/video directories remain separate image and video items. Temporary download suffixes are ignored. This is a conservative initial rule, not a claim about unseen user data. Real folder structure remains an explicit Windows gate.
+The user confirmed two source types on 2026-10-08: `manga` and `gallery` (images and video). A manga source treats each directory containing candidate images as one work. A gallery source detects individual images and videos even when they share a directory, then presents them in one library while retaining separate internal records. Temporary download suffixes are ignored. Legacy scanner modes remain readable only for compatibility with databases made during development; the UI does not offer them. Real folder structure remains an explicit Windows gate.
 
 ## Risks and gates
 

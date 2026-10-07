@@ -8,7 +8,7 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - It has no downloader, browser extension, receiver, updater, cloud/API/login, telemetry, advertising, analytics, automatic crash upload, LAN server or iPhone UI.
 - Runtime must not transmit filenames, paths, history, thumbnails, metadata or media.
 - Originals are read-only: no delete, move, rename or overwrite operation.
-- Manga, image and video pages, models and repositories stay separate. Desktop UI uses Core APIs, never SQL.
+- The Desktop UI and source registration have two categories: Manga, and combined Image/Video. Internal models, repositories and type-specific viewers remain separate. Desktop UI uses Core APIs, never SQL.
 - LAN/iPhone is a later Phase 2 and must not block or enter Phase 1.
 
 ## Current checkpoint

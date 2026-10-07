@@ -14,7 +14,7 @@ from .video_thumbnails import VideoThumbnailer
 
 
 class LibraryPage(QWidget):
-    item_opened = Signal(int)
+    item_opened = Signal(object)
 
     def __init__(self, title: str, load_items: Callable, sorts: SortRegistry, thumbnails: ThumbnailCache,
                  kind: str):
@@ -25,7 +25,7 @@ class LibraryPage(QWidget):
         self.kind = kind
         self.by_id = {}
         self.generation = 0
-        self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind == "動画" else None
+        self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind in ("動画", "画像・動画") else None
         layout = QVBoxLayout(self)
         heading = QLabel(title)
         heading.setObjectName("heading")
@@ -64,11 +64,16 @@ class LibraryPage(QWidget):
             self.video_thumbnails.reset()
         items = self.load_items(self.search.text().strip())
         items = self.sorts.apply(items, self.sort.currentData() or "newest")
-        self.by_id = {item.id: item for item in items}
+        def identity(item):
+            prefix = "manga" if isinstance(item, MangaWork) else "image" if isinstance(item, ImageItem) else "video"
+            return prefix, item.id
+
+        self.by_id = {identity(item): item for item in items}
         self.list.clear()
         for item in items:
             entry = QListWidgetItem(item.title)
-            entry.setData(Qt.ItemDataRole.UserRole, item.id)
+            item_key = identity(item)
+            entry.setData(Qt.ItemDataRole.UserRole, item_key)
             entry.setTextAlignment(Qt.AlignmentFlag.AlignHCenter)
             if isinstance(item, MangaWork) and item.cover_path:
                 try:
@@ -87,16 +92,16 @@ class LibraryPage(QWidget):
             self.list.addItem(entry)
             if isinstance(item, VideoItem) and self.video_thumbnails:
                 self.video_thumbnails.request(
-                    item, lambda value, item_id=item.id, token=generation: self._video_thumbnail(item_id, token, value)
+                    item, lambda value, item_key=item_key, token=generation: self._video_thumbnail(item_key, token, value)
                 )
         self.empty.setVisible(not items)
 
-    def _video_thumbnail(self, item_id: int, generation: int, pixmap) -> None:
+    def _video_thumbnail(self, item_key, generation: int, pixmap) -> None:
         if generation != self.generation or pixmap is None:
             return
         for index in range(self.list.count()):
             entry = self.list.item(index)
-            if entry.data(Qt.ItemDataRole.UserRole) == item_id:
+            if entry.data(Qt.ItemDataRole.UserRole) == item_key:
                 entry.setIcon(QIcon(pixmap))
                 break
 
@@ -115,13 +120,12 @@ class SettingsPage(QWidget):
         help_text.setWordWrap(True)
         layout.addWidget(help_text)
         row = QHBoxLayout()
-        self.mode = QComboBox()
-        for label, value in (("自動判定", "auto"), ("漫画", "manga"), ("画像", "image"), ("動画", "video")):
-            self.mode.addItem(label, value)
-        row.addWidget(self.mode)
-        add = QPushButton("フォルダを追加")
-        add.clicked.connect(self._choose)
-        row.addWidget(add)
+        add_manga = QPushButton("漫画フォルダを追加")
+        add_manga.clicked.connect(lambda: self._choose("manga"))
+        row.addWidget(add_manga)
+        add_gallery = QPushButton("画像・動画フォルダを追加")
+        add_gallery.clicked.connect(lambda: self._choose("gallery"))
+        row.addWidget(add_gallery)
         scan = QPushButton("すべて再スキャン")
         scan.clicked.connect(self.scan_requested.emit)
         row.addWidget(scan)
@@ -134,14 +138,14 @@ class SettingsPage(QWidget):
         location.setWordWrap(True)
         layout.addWidget(location)
 
-    def _choose(self) -> None:
+    def _choose(self, mode: str) -> None:
         path = QFileDialog.getExistingDirectory(self, "保存済みメディアのフォルダ")
         if path:
-            self.add_requested.emit(path, self.mode.currentData())
+            self.add_requested.emit(path, mode)
 
     def set_sources(self, sources: tuple[SourceFolder, ...]) -> None:
         self.sources.clear()
-        labels = {"auto": "自動", "manga": "漫画", "image": "画像", "video": "動画"}
+        labels = {"auto": "旧自動", "manga": "漫画", "gallery": "画像・動画", "image": "画像", "video": "動画"}
         for source in sources:
             state = "利用可能" if source.available else "未接続"
             self.sources.addItem(f"[{labels[source.mode]}] {source.path}  —  {state}")

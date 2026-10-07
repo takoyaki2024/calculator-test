@@ -35,9 +35,14 @@ def test_auto_classifies_manga_images_and_video(tmp_path):
 def test_explicit_modes_avoid_heuristic(tmp_path):
     touch(tmp_path / "album" / "1.jpg")
     touch(tmp_path / "album" / "2.jpg")
+    touch(tmp_path / "album" / "clip.mp4")
     assert not Scanner().scan(tmp_path, "image").mangas
     assert len(Scanner().scan(tmp_path, "image").images) == 2
     assert len(Scanner().scan(tmp_path, "manga").mangas) == 1
+    gallery = Scanner().scan(tmp_path, "gallery")
+    assert not gallery.mangas
+    assert len(gallery.images) == 2
+    assert len(gallery.videos) == 1
 
 
 def test_symlinks_are_not_followed(tmp_path):
