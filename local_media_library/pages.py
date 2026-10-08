@@ -25,7 +25,7 @@ class LibraryPage(QWidget):
         self.kind = kind
         self.by_id = {}
         self.generation = 0
-        self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind in ("動画", "画像・動画") else None
+        self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind == "動画" else None
         layout = QVBoxLayout(self)
         heading = QLabel(title)
         heading.setObjectName("heading")

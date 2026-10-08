@@ -18,7 +18,7 @@
 
 ## Architecture decision
 
-The application is split into Core, three media modules and Desktop UI. UI modules never issue SQL. Manga, images and video have distinct records and repository APIs. The Desktop UI deliberately exposes only two libraries: Manga, and a combined Image/Video library. Shared infrastructure is limited to source folders, scanning metadata, sort registration and cache location.
+The application is split into Core, three media modules and Desktop UI. UI modules never issue SQL. Manga, images and video have distinct records, repository APIs and Desktop pages. Shared infrastructure is limited to source folders, scanning metadata, sort registration and cache location.
 
 Source media is read-only. Initial scans enumerate and stat files. Decoding happens only in viewers or thumbnail generation. Cache and database live under `data/`, separate from media roots.
 
@@ -26,7 +26,7 @@ Source media is read-only. Initial scans enumerate and stat files. Decoding happ
 
 Supported initial image candidates: JPEG, PNG, WebP, BMP and GIF. Supported initial video candidates: MP4, M4V, MKV, WebM, MOV and AVI. An extension is a discovery hint, not proof of decodability.
 
-The user confirmed two source types on 2026-10-08: `manga` and `gallery` (images and video). A manga source treats each directory containing candidate images as one work. A gallery source detects individual images and videos even when they share a directory, then presents them in one library while retaining separate internal records. Temporary download suffixes are ignored. Legacy scanner modes remain readable only for compatibility with databases made during development; the UI does not offer them. Real folder structure remains an explicit Windows gate.
+The saved data has two source types: `manga` and `gallery` (mixed images and video). A manga source treats each directory containing candidate images as one work. A gallery source detects individual images and videos even when they share a directory, then routes them to separate Image and Video libraries. Temporary download suffixes are ignored. Legacy scanner modes remain readable only for compatibility with databases made during development; the UI does not offer them. Real folder structure remains an explicit Windows gate.
 
 ## Risks and gates
 

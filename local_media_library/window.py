@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMainWindow, QMessag
 from .database import Database
 from .image_viewer import ImageViewer
 from .manga_reader import MangaReader
-from .models import ImageItem, VideoItem
 from .pages import LibraryPage, SettingsPage
 from .paths import AppPaths
 from .repositories import ImageRepository, MangaRepository, VideoRepository
@@ -70,18 +69,20 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(shell)
 
         manga_sorts = default_registry()
-        gallery_sorts = default_registry()
+        image_sorts = default_registry()
+        video_sorts = default_registry()
         self.manga_page = LibraryPage("漫画", self.mangas.list, manga_sorts, self.thumbnails, "漫画")
-        self.gallery_page = LibraryPage("画像・動画", self.gallery_items, gallery_sorts, self.thumbnails, "画像・動画")
+        self.image_page = LibraryPage("画像", self.images.list, image_sorts, self.thumbnails, "画像")
+        self.video_page = LibraryPage("動画", self.videos.list, video_sorts, self.thumbnails, "動画")
         self.settings_page = SettingsPage(paths.data)
         self.manga_reader = MangaReader(self.mangas)
         self.image_viewer = ImageViewer()
         self.video_player = VideoPlayer(self.videos)
-        for page in (self.manga_page, self.gallery_page, self.settings_page,
+        for page in (self.manga_page, self.image_page, self.video_page, self.settings_page,
                      self.manga_reader, self.image_viewer, self.video_player):
             self.stack.addWidget(page)
-        for label, page in (("漫画", self.manga_page), ("画像・動画", self.gallery_page),
-                            ("設定", self.settings_page)):
+        for label, page in (("漫画", self.manga_page), ("画像", self.image_page),
+                            ("動画", self.video_page), ("設定", self.settings_page)):
             button = QPushButton(label, checkable=True, objectName="nav")
             button.clicked.connect(lambda _checked=False, target=page: self.show_page(target))
             nav.addWidget(button)
@@ -89,10 +90,11 @@ class MainWindow(QMainWindow):
         nav.addStretch()
 
         self.manga_page.item_opened.connect(self.open_manga)
-        self.gallery_page.item_opened.connect(self.open_gallery_item)
+        self.image_page.item_opened.connect(self.open_image)
+        self.video_page.item_opened.connect(self.open_video)
         self.manga_reader.back_requested.connect(lambda: self.show_page(self.manga_page))
-        self.image_viewer.back_requested.connect(lambda: self.show_page(self.gallery_page))
-        self.video_player.back_requested.connect(lambda: self.show_page(self.gallery_page))
+        self.image_viewer.back_requested.connect(lambda: self.show_page(self.image_page))
+        self.video_player.back_requested.connect(lambda: self.show_page(self.video_page))
         self.settings_page.add_requested.connect(self.add_source)
         self.settings_page.scan_requested.connect(self.scan_all)
         self.refresh_all()
@@ -109,11 +111,9 @@ class MainWindow(QMainWindow):
 
     def refresh_all(self) -> None:
         self.manga_page.refresh()
-        self.gallery_page.refresh()
+        self.image_page.refresh()
+        self.video_page.refresh()
         self.settings_page.set_sources(self.service.sources())
-
-    def gallery_items(self, query: str = ""):
-        return self.images.list(query) + self.videos.list(query)
 
     def add_source(self, path: str, mode: str) -> None:
         try:
@@ -153,12 +153,15 @@ class MainWindow(QMainWindow):
             self.manga_reader.open_work(item)
             self.show_page(self.manga_reader)
 
-    def open_gallery_item(self, item_key) -> None:
-        item = self.gallery_page.by_id.get(item_key)
-        if isinstance(item, ImageItem):
+    def open_image(self, item_key) -> None:
+        item = self.image_page.by_id.get(item_key)
+        if item:
             self.image_viewer.open_item(item)
             self.show_page(self.image_viewer)
-        elif isinstance(item, VideoItem):
+
+    def open_video(self, item_key) -> None:
+        item = self.video_page.by_id.get(item_key)
+        if item:
             self.video_player.open_item(item)
             self.show_page(self.video_player)
 

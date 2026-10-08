@@ -8,7 +8,7 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - It has no downloader, browser extension, receiver, updater, cloud/API/login, telemetry, advertising, analytics, automatic crash upload, LAN server or iPhone UI.
 - Runtime must not transmit filenames, paths, history, thumbnails, metadata or media.
 - Originals are read-only: no delete, move, rename or overwrite operation.
-- The Desktop UI and source registration have two categories: Manga, and combined Image/Video. Internal models, repositories and type-specific viewers remain separate. Desktop UI uses Core APIs, never SQL.
+- Source registration has two categories: Manga, and mixed Image/Video. Scanner classifies the latter into separate Image and Video libraries. Manga, Image and Video have separate pages, models, repositories and type-specific viewers. Desktop UI uses Core APIs, never SQL.
 - LAN/iPhone is a later Phase 2 and must not block or enter Phase 1.
 
 ## Current checkpoint
@@ -20,7 +20,7 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Stage 1 Core/SQLite/scanner/classification/minimum library: implemented; automated tests pass.
 - Stage 2 manga reader/image viewer/video player: implemented; automated synthetic-media tests pass.
 - Stage 3 search/sort/thumbnail cache/UX: implemented; automated tests pass.
-- Stage 4 automated validation: PASS at two-library source checkpoint `a8b2f9cbeaa8f071a54312a8a1d3b3fb694b9a90`.
+- Stage 4 automated validation previously passed for the packaged baseline. The separate-page revision requires a fresh CI/package run before its Windows artifact is current.
 - CI run `37648590445`: SUCCESS on Python 3.11 and 3.12.
 - Windows package run `37648590418`: SUCCESS. Tests, one-folder EXE, waited startup smoke, waited packaged video decode/control probe, and artifact upload passed.
 - Packaged probe: 11 decoded video frames, 36 decoded audio buffers, pause/seek/resume/fullscreen state PASS. Visible display and audible speaker output remain explicitly unverified.
@@ -30,7 +30,7 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 
 ## Verified automated behavior
 
-- Idempotent scans; two source/library categories (Manga and combined Image/Video); separate internal records; Japanese and nested long paths.
+- Idempotent scans; two source categories (Manga and mixed Image/Video); three separate media libraries and records; Japanese and nested long paths.
 - Natural page ordering; explicit source modes; temporary and unsupported files ignored; symlinks excluded.
 - Missing roots/items become unavailable without deleting database history.
 - Incomplete enumeration does not mark unseen records missing.
