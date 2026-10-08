@@ -20,12 +20,11 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Stage 1 Core/SQLite/scanner/classification/minimum library: implemented; automated tests pass.
 - Stage 2 manga reader/image viewer/video player: implemented; automated synthetic-media tests pass.
 - Stage 3 search/sort/thumbnail cache/UX: implemented; automated tests pass.
-- Stage 4 automated validation previously passed for the packaged baseline. The separate-page revision requires a fresh CI/package run before its Windows artifact is current.
-- CI run `37648590445`: SUCCESS on Python 3.11 and 3.12.
-- Windows package run `37648590418`: SUCCESS. Tests, one-folder EXE, waited startup smoke, waited packaged video decode/control probe, and artifact upload passed.
+- Stage 4 automated validation: PASS for separate Manga/Image/Video pages at source commit `b7746c1043ff5fc00ed6292a8abb92d812cb266c`.
+- CI run `37736627021`: SUCCESS on Python 3.11 and 3.12.
+- Windows package run `37736627019`: SUCCESS. Tests, one-folder EXE, waited startup smoke, waited packaged video decode/control probe, and artifact upload passed.
 - Packaged probe: 11 decoded video frames, 36 decoded audio buffers, pause/seek/resume/fullscreen state PASS. Visible display and audible speaker output remain explicitly unverified.
-- Windows artifact ID `11495271862`; outer artifact SHA-256 `a986c5409982bc37892fb996615d8107b4a3874e2ddb232d37b1f1d7e4938131`.
-- Delivered inner `LocalMediaLibrary-Windows.zip`: 59,299,504 bytes; SHA-256 `1675a4c4d26239074706a7f659e60c2213f52773a6d739df3a5b6c8d3f0b83c3`; 266 archive entries; EXE and empty data directory present; no source, database or user media entries.
+- Windows artifact ID `11531737732`; 59,086,549 bytes; artifact SHA-256 `c8fa169cbefa6e34597cabb904738557d3f89064d86942d73fffa6e65e2fd5d5`.
 - Real Windows/user-media/outbound-connection gate: pending and must not be claimed by automation.
 
 ## Verified automated behavior
