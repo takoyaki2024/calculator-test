@@ -16,7 +16,11 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Video thumbnail follow-up: viewport-only requests, page-leave/playback
   cancellation, first-frame/no-seek decoding, cooldown and timeout. Image and
   video pages/decoders remain separate; mixed source folders are unchanged.
-  This newer source requires fresh Windows packaging evidence.
+  Source `5fbde08dfb23c2e6da822c53d2c3d7e46f6c2a49`: local 25 passed,
+  1 Windows-only skip; CI `37922156852` and Windows package `37922156936`
+  SUCCESS. Packaged startup and video decode/control probe PASS (11 frames,
+  35 audio buffers). Artifact `11611594442`. User-media performance remains
+  unverified; do not claim Phase 1 complete.
 
 - Performance repair 2026-10-09: see `docs/performance-audit.md`. Bounded lists,
   worker image decoding, search debounce, lazy hidden pages, manga page reuse and

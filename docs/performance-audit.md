@@ -60,3 +60,10 @@ requested before/after scrolling, hide/reset cancellation, cache reuse without
 reopening the video, and real fixture frame decoding. These structural checks
 do not measure CPU/GPU load for the user's actual codecs. No source-folder
 classification change: mixed saved roots still feed separate image/video pages.
+
+Follow-up evidence: 25 local tests passed, 1 Windows-only test skipped. CI
+37922156852 and Windows package 37922156936 succeeded for source
+5fbde08dfb23c2e6da822c53d2c3d7e46f6c2a49. Startup smoke and video decode/control
+probe passed (11 video frames, 35 audio buffers). Artifact 11611594442. Physical
+display/audio, real-codec thumbnail cost and user-machine responsiveness remain
+unverified. The archive contains no user media or database.
