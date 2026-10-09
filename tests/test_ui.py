@@ -38,6 +38,8 @@ def test_window_scans_and_opens_manga_and_image(tmp_path, qapp):
     window.service.add_source(gallery_root, "gallery")
     window.scan_all()
     assert wait_until(lambda: not window.scanning)
+    window.show_page(window.image_page)
+    window.show_page(window.video_page)
     assert len(window.manga_page.by_id) == 1
     assert len(window.image_page.by_id) == 1
     assert len(window.video_page.by_id) == 1

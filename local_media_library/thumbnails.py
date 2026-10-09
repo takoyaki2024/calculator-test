@@ -42,16 +42,21 @@ class ThumbnailCache:
         cached_pixmap = self.cached(source, size, mtime_ns)
         if cached_pixmap is not None:
             return cached_pixmap
+        image = self.decode(source, target)
+        if image.isNull():
+            return self.placeholder("未対応", target)
+        return self.store(source, size, mtime_ns, image, target)
+
+    @staticmethod
+    def decode(source: Path, target: QSize = QSize(220, 300)) -> QImage:
+        """Worker-safe decoding: no QPixmap or source writes."""
         reader = QImageReader(str(source))
         reader.setAutoTransform(True)
         original = reader.size()
         if original.isValid():
             original.scale(target, Qt.AspectRatioMode.KeepAspectRatio)
             reader.setScaledSize(original)
-        image = reader.read()
-        if image.isNull():
-            return self.placeholder("未対応", target)
-        return self.store(source, size, mtime_ns, image, target)
+        return reader.read()
 
     @staticmethod
     def placeholder(label: str, target: QSize = QSize(220, 300)) -> QPixmap:

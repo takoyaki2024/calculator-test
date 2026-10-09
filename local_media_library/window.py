@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton,
                                QStackedWidget, QVBoxLayout, QWidget)
 
@@ -23,14 +23,17 @@ class WorkerSignals(QObject):
 
 
 class ScanWorker(QRunnable):
-    def __init__(self, service: LibraryService):
+    def __init__(self, service: LibraryService, thumbnails=None):
         super().__init__()
         self.service = service
+        self.thumbnails = thumbnails
         self.signals = WorkerSignals()
 
     @Slot()
     def run(self) -> None:
         try:
+            if self.thumbnails:
+                self.thumbnails.prune()
             self.signals.finished.emit(self.service.scan_all())
         except Exception as exc:
             self.signals.failed.emit(str(exc))
@@ -47,7 +50,6 @@ class MainWindow(QMainWindow):
         self.images = ImageRepository(self.database)
         self.videos = VideoRepository(self.database)
         self.thumbnails = ThumbnailCache(paths.thumbnails)
-        self.thumbnails.prune()
         self.pool = QThreadPool(self)
         self.scanning = False
         self.setWindowTitle("Local Media Library")
@@ -97,8 +99,12 @@ class MainWindow(QMainWindow):
         self.video_player.back_requested.connect(lambda: self.show_page(self.video_page))
         self.settings_page.add_requested.connect(self.add_source)
         self.settings_page.scan_requested.connect(self.scan_all)
-        self.refresh_all()
+        self.dirty_pages = {self.manga_page, self.image_page, self.video_page}
+        QTimer.singleShot(0, self._startup)
+
+    def _startup(self):
         self.show_page(self.manga_page)
+        self.settings_page.set_sources(self.service.sources())
         if self.service.sources():
             self.scan_all()
 
@@ -106,13 +112,18 @@ class MainWindow(QMainWindow):
         if self.stack.currentWidget() is self.video_player and page is not self.video_player:
             self.video_player.stop()
         self.stack.setCurrentWidget(page)
+        if page in self.dirty_pages:
+            page.refresh()
+            self.dirty_pages.discard(page)
         for button, target in self.nav_buttons:
             button.setChecked(target is page)
 
     def refresh_all(self) -> None:
-        self.manga_page.refresh()
-        self.image_page.refresh()
-        self.video_page.refresh()
+        self.dirty_pages.update((self.manga_page, self.image_page, self.video_page))
+        current = self.stack.currentWidget()
+        if current in self.dirty_pages:
+            current.refresh()
+            self.dirty_pages.discard(current)
         self.settings_page.set_sources(self.service.sources())
 
     def add_source(self, path: str, mode: str) -> None:
@@ -129,7 +140,7 @@ class MainWindow(QMainWindow):
             return
         self.scanning = True
         self.statusBar().showMessage("スキャン中…")
-        worker = ScanWorker(self.service)
+        worker = ScanWorker(self.service, self.thumbnails)
         worker.signals.finished.connect(self._scan_finished)
         worker.signals.failed.connect(self._scan_failed)
         self.pool.start(worker)
@@ -167,5 +178,10 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self.video_player.stop()
+        for page in (self.manga_page, self.image_page, self.video_page):
+            page.generation += 1
+            page.thumbnail_pool.clear()
+            if page.video_thumbnails:
+                page.video_thumbnails.reset()
         self.pool.waitForDone(15000)
         super().closeEvent(event)

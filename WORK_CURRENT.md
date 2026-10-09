@@ -13,6 +13,11 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 
 ## Current checkpoint
 
+- Performance repair 2026-10-09: see `docs/performance-audit.md`. Bounded lists,
+  worker image decoding, search debounce, lazy hidden pages, manga page reuse and
+  unchanged-row scan storage implemented. Local tests: 23 passed, 1 skipped.
+  Previous Windows package evidence below does NOT certify this newer source.
+
 - Base repository: `takoyaki2024/calculator-test`
 - Base commit: `c85ac82d8d675771864ab1c9aa7a2e46717f565a`
 - Working branch: `feature/local-media-library`

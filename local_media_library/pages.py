@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, QSize, Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget)
@@ -11,6 +11,24 @@ from .models import ImageItem, MangaWork, SourceFolder, VideoItem
 from .sorts import SortRegistry
 from .thumbnails import ThumbnailCache
 from .video_thumbnails import VideoThumbnailer
+
+
+class ThumbnailSignals(QObject):
+    finished = Signal(object, object, object)
+
+
+class ThumbnailWorker(QRunnable):
+    def __init__(self, key, generation, path):
+        super().__init__()
+        self.key, self.generation, self.path = key, generation, path
+        self.signals = ThumbnailSignals()
+
+    def run(self):
+        try:
+            value = ThumbnailCache.decode(self.path)
+        except Exception:
+            value = None
+        self.signals.finished.emit(self.key, self.generation, value)
 
 
 class LibraryPage(QWidget):
@@ -25,6 +43,14 @@ class LibraryPage(QWidget):
         self.kind = kind
         self.by_id = {}
         self.generation = 0
+        self.offset = 0
+        self.page_size = 100
+        self.entries = {}
+        self.thumbnail_sources = {}
+        self.thumbnail_pool = QThreadPool(self)
+        self.thumbnail_pool.setMaxThreadCount(2)
+        self.search_timer = QTimer(self, singleShot=True, interval=250)
+        self.search_timer.timeout.connect(self.refresh)
         self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind == "動画" else None
         layout = QVBoxLayout(self)
         heading = QLabel(title)
@@ -33,7 +59,7 @@ class LibraryPage(QWidget):
         controls = QHBoxLayout()
         self.search = QLineEdit(placeholderText="タイトルを検索")
         self.search.setClearButtonEnabled(True)
-        self.search.textChanged.connect(self.refresh)
+        self.search.textChanged.connect(lambda: self.search_timer.start())
         controls.addWidget(self.search, 1)
         self.sort = QComboBox()
         for option in sorts.options():
@@ -53,23 +79,45 @@ class LibraryPage(QWidget):
         self.list.setWordWrap(True)
         self.list.itemActivated.connect(lambda item: self.item_opened.emit(item.data(Qt.ItemDataRole.UserRole)))
         layout.addWidget(self.list, 1)
+        paging = QHBoxLayout()
+        self.previous_button = QPushButton("前の100件")
+        self.next_button = QPushButton("次の100件")
+        self.count_label = QLabel()
+        self.previous_button.clicked.connect(lambda: self._page(-1))
+        self.next_button.clicked.connect(lambda: self._page(1))
+        paging.addWidget(self.previous_button)
+        paging.addWidget(self.count_label, 1)
+        paging.addWidget(self.next_button)
+        layout.addLayout(paging)
         self.empty = QLabel("フォルダを設定すると、ここに表示されます")
         self.empty.setObjectName("muted")
         layout.addWidget(self.empty)
 
     def refresh(self) -> None:
+        self.search_timer.stop()
+        self.offset = 0
+        self.items = self.sorts.apply(self.load_items(self.search.text().strip()), self.sort.currentData() or "newest")
+        self._populate()
+
+    def _page(self, direction):
+        self.offset = max(0, self.offset + direction * self.page_size)
+        self._populate()
+
+    def _populate(self):
         self.generation += 1
         generation = self.generation
+        self.thumbnail_pool.clear()
         if self.video_thumbnails:
             self.video_thumbnails.reset()
-        items = self.load_items(self.search.text().strip())
-        items = self.sorts.apply(items, self.sort.currentData() or "newest")
+        items = self.items[self.offset:self.offset + self.page_size]
         def identity(item):
             prefix = "manga" if isinstance(item, MangaWork) else "image" if isinstance(item, ImageItem) else "video"
             return prefix, item.id
 
         self.by_id = {identity(item): item for item in items}
         self.list.clear()
+        self.entries.clear()
+        self.thumbnail_sources.clear()
         for item in items:
             entry = QListWidgetItem(item.title)
             item_key = identity(item)
@@ -78,11 +126,13 @@ class LibraryPage(QWidget):
             if isinstance(item, MangaWork) and item.cover_path:
                 try:
                     stat = item.cover_path.stat()
-                    pixmap = self.thumbnails.image(item.cover_path, stat.st_size, stat.st_mtime_ns)
+                    self.thumbnail_sources[item_key] = (item.cover_path, stat.st_size, stat.st_mtime_ns)
+                    pixmap = self.thumbnails.placeholder("漫画")
                 except OSError:
                     pixmap = self.thumbnails.placeholder("漫画")
             elif isinstance(item, ImageItem):
-                pixmap = self.thumbnails.image(item.path, item.size, item.mtime_ns)
+                self.thumbnail_sources[item_key] = (item.path, item.size, item.mtime_ns)
+                pixmap = self.thumbnails.placeholder("画像")
             elif isinstance(item, VideoItem):
                 pixmap = self.thumbnails.placeholder("▶\n動画")
             else:
@@ -90,20 +140,45 @@ class LibraryPage(QWidget):
             entry.setIcon(QIcon(pixmap))
             entry.setToolTip(str(item.path) if hasattr(item, "path") else item.title)
             self.list.addItem(entry)
+            self.entries[item_key] = entry
+            if item_key in self.thumbnail_sources:
+                path, size, mtime = self.thumbnail_sources[item_key]
+                try:
+                    cached = self.thumbnails.cached(path, size, mtime)
+                except OSError:
+                    cached = None
+                if cached is not None:
+                    entry.setIcon(QIcon(cached))
+                else:
+                    worker = ThumbnailWorker(item_key, generation, path)
+                    worker.signals.finished.connect(self._image_thumbnail)
+                    self.thumbnail_pool.start(worker)
             if isinstance(item, VideoItem) and self.video_thumbnails:
                 self.video_thumbnails.request(
                     item, lambda value, item_key=item_key, token=generation: self._video_thumbnail(item_key, token, value)
                 )
         self.empty.setVisible(not items)
+        total = len(self.items)
+        self.count_label.setText(f"{self.offset + 1 if total else 0}–{self.offset + len(items)} / {total}件")
+        self.previous_button.setEnabled(self.offset > 0)
+        self.next_button.setEnabled(self.offset + self.page_size < total)
+
+    def _image_thumbnail(self, key, generation, image):
+        if generation != self.generation or key not in self.entries or image is None or image.isNull():
+            return
+        try:
+            path, size, mtime = self.thumbnail_sources[key]
+            pixmap = self.thumbnails.store(path, size, mtime, image)
+            self.entries[key].setIcon(QIcon(pixmap))
+        except OSError:
+            pass
 
     def _video_thumbnail(self, item_key, generation: int, pixmap) -> None:
         if generation != self.generation or pixmap is None:
             return
-        for index in range(self.list.count()):
-            entry = self.list.item(index)
-            if entry.data(Qt.ItemDataRole.UserRole) == item_key:
-                entry.setIcon(QIcon(pixmap))
-                break
+        entry = self.entries.get(item_key)
+        if entry is not None:
+            entry.setIcon(QIcon(pixmap))
 
 
 class SettingsPage(QWidget):

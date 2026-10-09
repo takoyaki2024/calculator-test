@@ -19,6 +19,8 @@ class MangaReader(QWidget):
         self.index = 0
         self.zoom = 1.0
         self.fit = True
+        self.cached_page = None
+        self.original_pixmap = QPixmap()
         layout = QVBoxLayout(self)
         controls = QHBoxLayout()
         for label, callback in (("← 一覧", self.back_requested.emit), ("前", self.previous), ("次", self.next),
@@ -38,6 +40,7 @@ class MangaReader(QWidget):
         layout.addWidget(self.scroll, 1)
 
     def open_work(self, work: MangaWork) -> None:
+        self.cached_page = None
         self.work = work
         self.pages = self.repository.pages(work.id)
         self.index = min(work.last_page, max(0, len(self.pages) - 1))
@@ -49,13 +52,16 @@ class MangaReader(QWidget):
             self.label.setText("ページが見つかりません")
             return
         page = self.pages[self.index]
-        reader = QImageReader(str(page.path))
-        reader.setAutoTransform(True)
-        image = reader.read()
-        if image.isNull():
-            self.label.setText(f"この画像を開けません\n{reader.errorString()}")
-            return
-        pixmap = QPixmap.fromImage(image)
+        if self.cached_page != page.path:
+            reader = QImageReader(str(page.path))
+            reader.setAutoTransform(True)
+            image = reader.read()
+            if image.isNull():
+                self.label.setText(f"この画像を開けません\n{reader.errorString()}")
+                return
+            self.original_pixmap = QPixmap.fromImage(image)
+            self.cached_page = page.path
+        pixmap = self.original_pixmap
         if self.fit:
             width = max(200, self.scroll.viewport().width() - 24)
             pixmap = pixmap.scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)

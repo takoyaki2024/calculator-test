@@ -63,20 +63,21 @@ class LibraryService:
                 "UPDATE sources SET available=1,last_scan_ns=?,last_error=? WHERE id=?",
                 (time.time_ns(), "\n".join(result.errors), source_id),
             )
-            # A partial enumeration must not make an inaccessible subtree look deleted.
-            # Only a complete scan is authoritative for missing-file transitions.
-            if not result.errors:
-                for table in ("manga_works", "images", "videos"):
-                    connection.execute(f"UPDATE {table} SET available=0 WHERE source_id=?", (source_id,))
-                connection.execute(
-                    "UPDATE manga_pages SET available=0 WHERE work_id IN "
-                    "(SELECT id FROM manga_works WHERE source_id=?)", (source_id,)
-                )
+            existing = {}
+            seen = {table: set() for table in ("manga_works", "images", "videos", "manga_pages")}
+            for table in ("manga_works", "images", "videos"):
+                key = "relative_dir" if table == "manga_works" else "relative_path"
+                existing[table] = {row[key]: row for row in connection.execute(
+                    f"SELECT * FROM {table} WHERE source_id=?", (source_id,))}
+            existing["manga_pages"] = {(row["work_id"], row["relative_path"]): row for row in connection.execute(
+                "SELECT p.* FROM manga_pages p JOIN manga_works w ON w.id=p.work_id WHERE w.source_id=?", (source_id,))}
             for work in result.mangas:
+                seen["manga_works"].add(work.relative_dir)
                 connection.execute(
                     "INSERT INTO manga_works(source_id,relative_dir,title,page_count,mtime_ns,available) "
                     "VALUES(?,?,?,?,?,1) ON CONFLICT(source_id,relative_dir) DO UPDATE SET "
-                    "title=excluded.title,page_count=excluded.page_count,mtime_ns=excluded.mtime_ns,available=1",
+                    "title=excluded.title,page_count=excluded.page_count,mtime_ns=excluded.mtime_ns,available=1 "
+                    "WHERE title<>excluded.title OR page_count<>excluded.page_count OR mtime_ns<>excluded.mtime_ns OR available<>1",
                     (source_id, work.relative_dir, work.title, len(work.pages), work.mtime_ns),
                 )
                 work_id = connection.execute(
@@ -84,18 +85,31 @@ class LibraryService:
                     (source_id, work.relative_dir),
                 ).fetchone()[0]
                 for index, page in enumerate(work.pages):
+                    seen["manga_pages"].add((work_id, page.relative_path))
                     connection.execute(
                         "INSERT INTO manga_pages(work_id,relative_path,page_index,size,mtime_ns,available) "
                         "VALUES(?,?,?,?,?,1) ON CONFLICT(work_id,relative_path) DO UPDATE SET "
-                        "page_index=excluded.page_index,size=excluded.size,mtime_ns=excluded.mtime_ns,available=1",
+                        "page_index=excluded.page_index,size=excluded.size,mtime_ns=excluded.mtime_ns,available=1 "
+                        "WHERE page_index<>excluded.page_index OR size<>excluded.size OR mtime_ns<>excluded.mtime_ns OR available<>1",
                         (work_id, page.relative_path, index, page.size, page.mtime_ns),
                     )
             for table, items in (("images", result.images), ("videos", result.videos)):
                 for item in items:
+                    seen[table].add(item.relative_path)
                     title = Path(item.relative_path).stem
+                    old = existing[table].get(item.relative_path)
+                    if old is not None and (old["title"], old["size"], old["mtime_ns"], old["available"]) == (title, item.size, item.mtime_ns, 1):
+                        continue
                     connection.execute(
                         f"INSERT INTO {table}(source_id,relative_path,title,size,mtime_ns,available) "
                         "VALUES(?,?,?,?,?,1) ON CONFLICT(source_id,relative_path) DO UPDATE SET "
-                        "title=excluded.title,size=excluded.size,mtime_ns=excluded.mtime_ns,available=1",
+                        "title=excluded.title,size=excluded.size,mtime_ns=excluded.mtime_ns,available=1 "
+                        "WHERE title<>excluded.title OR size<>excluded.size OR mtime_ns<>excluded.mtime_ns OR available<>1",
                         (source_id, item.relative_path, title, item.size, item.mtime_ns),
                     )
+            # Only complete enumeration may transition genuinely unseen records.
+            if not result.errors:
+                for table, rows in existing.items():
+                    missing = [(row["id"],) for key, row in rows.items()
+                               if key not in seen[table] and row["available"]]
+                    connection.executemany(f"UPDATE {table} SET available=0 WHERE id=?", missing)
