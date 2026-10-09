@@ -49,8 +49,13 @@ visible-only requests, scroll changes, hide/resume, stale events, cache failure,
 cache pruning, managed-directory exclusion, resume state and corrupted-video
 continuation. Static runtime boundary tests pass.
 
-The previous package does not certify these changes. A fresh Windows CI/package,
-startup smoke and decoded-frame/audio/control probe are required for this source.
+Audited source `6bd18e138ab24760aa8f7d41b530a6acf85a05c3` passed CI
+37923744574 and Windows package 37923744564. Windows tests, packaged startup
+smoke and decoded-frame/audio/control probe all passed: 11 video frames and 35
+audio buffers, pause/seek/resume/fullscreen state. Artifact 11612952608; archive
+SHA-256 `f48c5c5e3f4822a573508f3fdc9e3b85408023df5effe6afd7e31c12bd51a12b`.
+The complete local suite also passed three consecutive runs. Earlier packages
+are superseded by this audited build; `main` is not merged.
 
 Only the user's real Windows environment and saved media can certify sustained
 CPU/GPU/disk load, actual first-frame quality, actual codec support, physical

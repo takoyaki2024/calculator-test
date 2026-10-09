@@ -16,8 +16,11 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Release-candidate audit: read `docs/completion-audit.md`. Hidden image work,
   late video-frame attribution, failed cache commits and stale reopen positions
   were reproduced and repaired. Management-data exclusion and isolated periodic
-  cache pruning added. Local suite: 33 passed, 1 skipped. Fresh package required
-  for this audited revision; real Windows/user-media gate still pending.
+  cache pruning added. Local suite: 33 passed, 1 skipped, three repeated runs
+  passed. Audited source `6bd18e138ab24760aa8f7d41b530a6acf85a05c3` passed
+  CI `37923744574` and Windows package `37923744564`, including packaged startup
+  and decode/control probe (11 frames, 35 audio buffers). Artifact `11612952608`.
+  Real Windows/user-media/outbound-connection gate still pending; no main merge.
 
 - Video thumbnail follow-up: viewport-only requests, page-leave/playback
   cancellation, first-frame/no-seek decoding, cooldown and timeout. Image and
