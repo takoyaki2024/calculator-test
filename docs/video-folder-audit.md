@@ -43,9 +43,15 @@
   views, one selected manual request, failure display and stale callback protection.
 - Real baseline H.264/AAC fixture: manual generation, cache reuse without decode,
   regeneration after cache removal. Natural repository file order: 1,2,10.
-- Local: 37 passed, one Windows-only skip; application startup/exit smoke passed.
+- Local: 37 passed, one Windows-only skip, three repeated clean full-suite exits;
+  application startup/exit smoke passed.
   A native exit failure occurred when the Qt test fixture left windows alive until
   interpreter shutdown. Explicit fixture cleanup while QApplication remains alive
   restores clean exit. Tests must pass through process exit, not just assertions.
-- Windows build evidence pending. Actual user Windows CPU/media,
+- Source `a53477be610a28fcfc574897d237932b7b1e3342`: CI `37928546383`
+  (Python 3.11/3.12) SUCCESS. Windows package `37928546435` SUCCESS: tests,
+  one-folder build, packaged startup and baseline video decode/control probe.
+  Artifact `11615531271`, outer ZIP SHA-256
+  `c79e102e8f1a54c9b5195134fda15a46998d8a93b06291668bfd5c3fe382ba8b`.
+  Actual user Windows CPU/media,
   display/audio and outbound-connection gate remain pending. Not Phase 1 complete.

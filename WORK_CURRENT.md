@@ -17,7 +17,12 @@ This is the continuation entrypoint for the Local Media Library project. Read th
   groups existing records by source/folder, then opens videos inside the work.
   Automatic video thumbnail generation is disabled; existing cache displays,
   selected single-file generation is explicit and reports failures. Images remain
-  separate. iPhone/LAN stays Phase 2. New automated/build evidence pending.
+  separate. iPhone/LAN stays Phase 2. Local 37 passed, one Windows-only skip,
+  three clean full-suite exits after Qt fixture cleanup; standalone smoke PASS.
+  Source `a53477be610a28fcfc574897d237932b7b1e3342`: CI `37928546383`
+  and Windows package `37928546435` SUCCESS, including startup and real video
+  decode/control probe. Artifact `11615531271`. Actual user CPU/media and
+  outbound-connection gate remain pending; no main merge.
 
 - Release-candidate audit: read `docs/completion-audit.md`. Hidden image work,
   late video-frame attribution, failed cache commits and stale reopen positions
