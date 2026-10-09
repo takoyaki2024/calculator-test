@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from weakref import ref
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, QSize, Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget)
 
-from .models import ImageItem, MangaWork, SourceFolder, VideoItem
+from .models import ImageItem, MangaWork, SourceFolder, VideoItem, VideoWork
 from .sorts import SortRegistry
 from .thumbnails import ThumbnailCache
 from .video_thumbnails import VideoThumbnailer
@@ -35,12 +36,13 @@ class LibraryPage(QWidget):
     item_opened = Signal(object)
 
     def __init__(self, title: str, load_items: Callable, sorts: SortRegistry, thumbnails: ThumbnailCache,
-                 kind: str):
+                 kind: str, auto_video_thumbnails: bool = True):
         super().__init__()
         self.load_items = load_items
         self.sorts = sorts
         self.thumbnails = thumbnails
         self.kind = kind
+        self.auto_video_thumbnails = auto_video_thumbnails
         self.by_id = {}
         self.generation = 0
         self.offset = 0
@@ -59,7 +61,7 @@ class LibraryPage(QWidget):
         self.video_timer = QTimer(self, singleShot=True, interval=350)
         self.video_timer.timeout.connect(self._visible_video_thumbnails)
         layout = QVBoxLayout(self)
-        heading = QLabel(title)
+        heading = self.heading = QLabel(title)
         heading.setObjectName("heading")
         layout.addWidget(heading)
         controls = QHBoxLayout()
@@ -83,7 +85,7 @@ class LibraryPage(QWidget):
         self.list.setIconSize(QSize(176, 240))
         self.list.setGridSize(QSize(210, 290))
         self.list.setWordWrap(True)
-        self.list.itemActivated.connect(lambda item: self.item_opened.emit(item.data(Qt.ItemDataRole.UserRole)))
+        self.list.itemActivated.connect(self._activate)
         layout.addWidget(self.list, 1)
         self.list.verticalScrollBar().valueChanged.connect(self._schedule_video_thumbnails)
         self.list.horizontalScrollBar().valueChanged.connect(self._schedule_video_thumbnails)
@@ -100,6 +102,9 @@ class LibraryPage(QWidget):
         self.empty = QLabel("フォルダを設定すると、ここに表示されます")
         self.empty.setObjectName("muted")
         layout.addWidget(self.empty)
+
+    def _activate(self, item):
+        self.item_opened.emit(item.data(Qt.ItemDataRole.UserRole))
 
     def refresh(self) -> None:
         self.search_pending = False
@@ -122,7 +127,8 @@ class LibraryPage(QWidget):
             self.video_visible.clear()
         items = self.items[self.offset:self.offset + self.page_size]
         def identity(item):
-            prefix = "manga" if isinstance(item, MangaWork) else "image" if isinstance(item, ImageItem) else "video"
+            prefix = ("video-work" if isinstance(item, VideoWork) else "manga" if isinstance(item, MangaWork)
+                      else "image" if isinstance(item, ImageItem) else "video")
             return prefix, item.id
 
         self.by_id = {identity(item): item for item in items}
@@ -130,7 +136,7 @@ class LibraryPage(QWidget):
         self.entries.clear()
         self.thumbnail_sources.clear()
         for item in items:
-            entry = QListWidgetItem(item.title)
+            entry = QListWidgetItem(f"{item.title}\n{item.file_count}本" if isinstance(item, VideoWork) else item.title)
             item_key = identity(item)
             entry.setData(Qt.ItemDataRole.UserRole, item_key)
             entry.setTextAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -146,6 +152,8 @@ class LibraryPage(QWidget):
                 pixmap = self.thumbnails.placeholder("画像")
             elif isinstance(item, VideoItem):
                 pixmap = self.thumbnails.placeholder("▶\n動画")
+            elif isinstance(item, VideoWork):
+                pixmap = self.thumbnails.placeholder("フォルダ")
             else:
                 pixmap = self.thumbnails.placeholder(self.kind)
             entry.setIcon(QIcon(pixmap))
@@ -186,6 +194,18 @@ class LibraryPage(QWidget):
                     worker = ThumbnailWorker(key, self.generation, path)
                     worker.signals.finished.connect(self._image_thumbnail)
                     self.thumbnail_pool.start(worker)
+            return
+        if not self.auto_video_thumbnails:
+            for key in keys:
+                item = self.by_id[key]
+                if not isinstance(item, VideoItem):
+                    continue
+                try:
+                    cached = self.thumbnails.cached(item.path, item.size, item.mtime_ns)
+                except OSError:
+                    cached = None
+                if cached is not None:
+                    self.entries[key].setIcon(QIcon(cached))
             return
         if keys == self.video_visible:
             return
@@ -238,6 +258,107 @@ class LibraryPage(QWidget):
         entry = self.entries.get(item_key)
         if entry is not None:
             entry.setIcon(QIcon(pixmap))
+
+
+class VideoLibraryPage(LibraryPage):
+    """Folder works and their videos; opening a library never starts video decoding."""
+
+    def __init__(self, repository, sorts, thumbnails):
+        self.repository = repository
+        self.current_work = None
+        self.work_sort = "newest"
+        # Avoid retaining this QWidget through its stored loader during Qt shutdown.
+        page_ref = ref(self)
+        super().__init__("動画 — 作品フォルダ", lambda query: page_ref()._load(query), sorts, thumbnails, "動画",
+                         auto_video_thumbnails=False)
+        navigation = QHBoxLayout()
+        self.back_button = QPushButton("作品一覧に戻る")
+        self.back_button.clicked.connect(self.show_works)
+        self.generate_button = QPushButton("選択した動画のサムネイルを生成")
+        self.generate_button.clicked.connect(self.generate_selected)
+        self.thumbnail_status = QLabel("動画サムネイルは自動生成しません")
+        self.thumbnail_status.setWordWrap(True)
+        navigation.addWidget(self.back_button)
+        navigation.addWidget(self.generate_button)
+        navigation.addWidget(self.thumbnail_status, 1)
+        self.layout().insertLayout(1, navigation)
+        self.back_button.hide()
+        self.generate_button.hide()
+
+    def _load(self, query):
+        if self.current_work is None:
+            return self.repository.works(query)
+        return self.repository.in_work(*self.current_work.id, query)
+
+    def _activate(self, entry):
+        key = entry.data(Qt.ItemDataRole.UserRole)
+        item = self.by_id.get(key)
+        if isinstance(item, VideoWork):
+            self.work_sort = self.sort.currentData()
+            self.current_work = item
+            self.heading.setText(f"動画 — {item.title}")
+            self.back_button.show()
+            self.generate_button.show()
+            self._clear_search()
+            natural_index = self.sort.findData("natural")
+            if natural_index >= 0:
+                self.sort.blockSignals(True)
+                self.sort.setCurrentIndex(natural_index)
+                self.sort.blockSignals(False)
+            self.refresh()
+        elif isinstance(item, VideoItem):
+            self.item_opened.emit(key)
+
+    def _clear_search(self):
+        self.search.blockSignals(True)
+        self.search.clear()
+        self.search.blockSignals(False)
+
+    def show_works(self):
+        self.current_work = None
+        self.heading.setText("動画 — 作品フォルダ")
+        self.back_button.hide()
+        self.generate_button.hide()
+        self._clear_search()
+        self.sort.blockSignals(True)
+        self.sort.setCurrentIndex(max(0, self.sort.findData(self.work_sort)))
+        self.sort.blockSignals(False)
+        self.refresh()
+
+    def refresh(self):
+        super().refresh()
+        self.generate_button.setEnabled(True)
+        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
+
+    def _page(self, direction):
+        super()._page(direction)
+        self.generate_button.setEnabled(True)
+        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
+
+    def generate_selected(self):
+        entry = self.list.currentItem()
+        key = entry.data(Qt.ItemDataRole.UserRole) if entry else None
+        item = self.by_id.get(key)
+        if not isinstance(item, VideoItem):
+            self.thumbnail_status.setText("生成する動画を1本選択してください")
+            return
+        self.video_thumbnails.reset()
+        self.generate_button.setEnabled(False)
+        self.thumbnail_status.setText("選択した1本を生成中…（10秒で中断を試みます）")
+        generation = self.generation
+        def finished(pixmap):
+            if generation != self.generation:
+                return
+            self._video_thumbnail(key, generation, pixmap)
+            self.generate_button.setEnabled(True)
+            self.thumbnail_status.setText("生成完了" if pixmap is not None else
+                                          "生成できませんでした：" + (self.video_thumbnails.last_error or "映像を取得できません"))
+        self.video_thumbnails.request(item, finished)
+
+    def showEvent(self, event):
+        self.generate_button.setEnabled(True)
+        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
+        super().showEvent(event)
 
 
 class SettingsPage(QWidget):

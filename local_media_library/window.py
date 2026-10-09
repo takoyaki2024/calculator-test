@@ -7,11 +7,13 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMainWindow, QMessag
 from .database import Database
 from .image_viewer import ImageViewer
 from .manga_reader import MangaReader
-from .pages import LibraryPage, SettingsPage
+from .pages import LibraryPage, SettingsPage, VideoLibraryPage
+from .models import VideoItem
 from .paths import AppPaths
 from .repositories import ImageRepository, MangaRepository, VideoRepository
 from .service import LibraryService
-from .sorts import default_registry
+from .sorts import default_registry, SortOption
+from .natural import natural_key
 from .theme import APP_STYLE
 from .thumbnails import ThumbnailCache
 from .video_player import VideoPlayer
@@ -88,9 +90,10 @@ class MainWindow(QMainWindow):
         manga_sorts = default_registry()
         image_sorts = default_registry()
         video_sorts = default_registry()
+        video_sorts.register(SortOption("natural", "ファイル名順", lambda item: natural_key(item.title)))
         self.manga_page = LibraryPage("漫画", self.mangas.list, manga_sorts, self.thumbnails, "漫画")
         self.image_page = LibraryPage("画像", self.images.list, image_sorts, self.thumbnails, "画像")
-        self.video_page = LibraryPage("動画", self.videos.list, video_sorts, self.thumbnails, "動画")
+        self.video_page = VideoLibraryPage(self.videos, video_sorts, self.thumbnails)
         self.settings_page = SettingsPage(paths.data)
         self.manga_reader = MangaReader(self.mangas)
         self.image_viewer = ImageViewer()
@@ -210,7 +213,7 @@ class MainWindow(QMainWindow):
 
     def open_video(self, item_key) -> None:
         item = self.video_page.by_id.get(item_key)
-        if item:
+        if isinstance(item, VideoItem):
             self.video_page.video_timer.stop()
             self.video_page.video_thumbnails.reset()
             self.video_player.open_item(item)

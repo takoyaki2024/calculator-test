@@ -51,6 +51,7 @@ def test_window_scans_and_opens_manga_and_image(tmp_path, qapp):
     assert not window.image_viewer.pixmap.isNull()
     opened = []
     window.video_player.open_item = opened.append
+    window.video_page._activate(window.video_page.list.item(0))
     video_key = next(iter(window.video_page.by_id))
     window.open_video(video_key)
     assert opened[0].title == "映像"

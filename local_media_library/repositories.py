@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from .database import Database
-from .models import ImageItem, MangaPage, MangaWork, VideoItem
+from .models import ImageItem, MangaPage, MangaWork, VideoItem, VideoWork
+from .natural import natural_key
 
 
 class _Repository:
@@ -73,6 +74,44 @@ class ImageRepository(_Repository):
 
 
 class VideoRepository(_Repository):
+    def works(self, query: str = "") -> tuple[VideoWork, ...]:
+        # Derive folder works from retained file records; no DB migration or source changes.
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                "SELECT v.source_id,v.relative_path,v.mtime_ns,s.path root "
+                "FROM videos v JOIN sources s ON s.id=v.source_id WHERE v.available=1"
+            ).fetchall()
+        groups = {}
+        for row in rows:
+            relative_dir = Path(row["relative_path"]).parent.as_posix()
+            key = row["source_id"], relative_dir
+            if key not in groups:
+                root = Path(row["root"])
+                path = root / relative_dir
+                groups[key] = [path, path.name or str(path), 0, row["mtime_ns"]]
+            group = groups[key]
+            group[2] += 1
+            group[3] = max(group[3], row["mtime_ns"])
+        return tuple(VideoWork(source_id, relative_dir, path, title, count, mtime)
+                     for (source_id, relative_dir), (path, title, count, mtime) in groups.items()
+                     if self._matches(title, query))
+
+    def in_work(self, source_id: int, relative_dir: str, query: str = "") -> tuple[VideoItem, ...]:
+        # Prefix comparison is literal (folder names may contain SQL wildcard characters).
+        prefix = "" if relative_dir == "." else relative_dir + "/"
+        with self.database.connect() as connection:
+            rows = connection.execute(
+                "SELECT v.*,s.path root FROM videos v JOIN sources s ON s.id=v.source_id "
+                "WHERE v.available=1 AND v.source_id=? AND substr(v.relative_path,1,?)=? "
+                "AND instr(substr(v.relative_path,?),'/')=0",
+                (source_id, len(prefix), prefix, len(prefix) + 1),
+            ).fetchall()
+        items = (VideoItem(r["id"], r["source_id"], r["relative_path"], Path(r["root"]) / r["relative_path"],
+                           r["title"], True, r["size"], r["mtime_ns"], r["position_ms"], bool(r["favorite"]))
+                 for r in rows)
+        return tuple(sorted((item for item in items if self._matches(item.title, query)),
+                            key=lambda item: natural_key(item.relative_path)))
+
     def get_position(self, item_id: int) -> int:
         with self.database.connect() as connection:
             row = connection.execute("SELECT position_ms FROM videos WHERE id=?", (item_id,)).fetchone()

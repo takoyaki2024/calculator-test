@@ -13,6 +13,12 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 
 ## Current checkpoint
 
+- Video folder follow-up: see `docs/video-folder-audit.md`. Production Video page
+  groups existing records by source/folder, then opens videos inside the work.
+  Automatic video thumbnail generation is disabled; existing cache displays,
+  selected single-file generation is explicit and reports failures. Images remain
+  separate. iPhone/LAN stays Phase 2. New automated/build evidence pending.
+
 - Release-candidate audit: read `docs/completion-audit.md`. Hidden image work,
   late video-frame attribution, failed cache commits and stale reopen positions
   were reproduced and repaired. Management-data exclusion and isolated periodic

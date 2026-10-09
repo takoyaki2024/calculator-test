@@ -50,6 +50,20 @@ class ImageItem:
 
 
 @dataclass(frozen=True)
+class VideoWork:
+    source_id: int
+    relative_dir: str
+    path: Path
+    title: str
+    file_count: int
+    mtime_ns: int
+
+    @property
+    def id(self) -> tuple[int, str]:
+        return self.source_id, self.relative_dir
+
+
+@dataclass(frozen=True)
 class VideoItem:
     id: int
     source_id: int
