@@ -17,6 +17,11 @@ This is the continuation entrypoint for the Local Media Library project. Read th
   worker image decoding, search debounce, lazy hidden pages, manga page reuse and
   unchanged-row scan storage implemented. Local tests: 23 passed, 1 skipped.
   Previous Windows package evidence below does NOT certify this newer source.
+- Performance source `f23ff415351f2813d002e01db630dfc1f93b4b6f`:
+  CI `37920396468` and Windows package `37920396498` SUCCESS.
+  New artifact `11611811371`; packaged startup and video probe PASS
+  (11 video frames, 34 audio buffers; pause/seek/resume/fullscreen state).
+  User-machine performance and outbound-connection observation remain pending.
 
 - Base repository: `takoyaki2024/calculator-test`
 - Base commit: `c85ac82d8d675771864ab1c9aa7a2e46717f565a`

@@ -33,8 +33,13 @@ of user-machine startup time. A deliberately held image decoder did not block
 refresh. A second unchanged 10,000-image storage pass changed only the source scan
 timestamp, not media rows. Existing missing/partial/idempotence tests still pass.
 
-Not yet certified: Windows package for this commit, actual saved-media performance,
-outbound connections, high-resolution first-open latency and native codec behavior.
+Windows source `f23ff415351f2813d002e01db630dfc1f93b4b6f` passed CI run
+37920396468 and Windows package run 37920396498. Packaged startup and H.264/AAC
+decode/control probe passed (11 video frames, 34 audio buffers). Artifact:
+11611811371. This does not verify actual visible/audible output or user media.
+
+Not yet certified: actual saved-media performance, outbound connections,
+high-resolution first-open latency and actual saved-video codec behavior.
 Repository queries still load all metadata; very large libraries may require Core
 query pagination after measurement. Viewer first-open decoding is still synchronous.
 Do not claim Phase 1 complete from these automated results.
