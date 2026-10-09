@@ -52,6 +52,10 @@ class LibraryPage(QWidget):
         self.search_timer = QTimer(self, singleShot=True, interval=250)
         self.search_timer.timeout.connect(self.refresh)
         self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind == "動画" else None
+        self.video_completed = set()
+        self.video_visible = set()
+        self.video_timer = QTimer(self, singleShot=True, interval=350)
+        self.video_timer.timeout.connect(self._visible_video_thumbnails)
         layout = QVBoxLayout(self)
         heading = QLabel(title)
         heading.setObjectName("heading")
@@ -79,6 +83,8 @@ class LibraryPage(QWidget):
         self.list.setWordWrap(True)
         self.list.itemActivated.connect(lambda item: self.item_opened.emit(item.data(Qt.ItemDataRole.UserRole)))
         layout.addWidget(self.list, 1)
+        self.list.verticalScrollBar().valueChanged.connect(self._schedule_video_thumbnails)
+        self.list.horizontalScrollBar().valueChanged.connect(self._schedule_video_thumbnails)
         paging = QHBoxLayout()
         self.previous_button = QPushButton("前の100件")
         self.next_button = QPushButton("次の100件")
@@ -109,6 +115,8 @@ class LibraryPage(QWidget):
         self.thumbnail_pool.clear()
         if self.video_thumbnails:
             self.video_thumbnails.reset()
+            self.video_completed.clear()
+            self.video_visible.clear()
         items = self.items[self.offset:self.offset + self.page_size]
         def identity(item):
             prefix = "manga" if isinstance(item, MangaWork) else "image" if isinstance(item, ImageItem) else "video"
@@ -153,15 +161,48 @@ class LibraryPage(QWidget):
                     worker = ThumbnailWorker(item_key, generation, path)
                     worker.signals.finished.connect(self._image_thumbnail)
                     self.thumbnail_pool.start(worker)
-            if isinstance(item, VideoItem) and self.video_thumbnails:
-                self.video_thumbnails.request(
-                    item, lambda value, item_key=item_key, token=generation: self._video_thumbnail(item_key, token, value)
-                )
         self.empty.setVisible(not items)
         total = len(self.items)
         self.count_label.setText(f"{self.offset + 1 if total else 0}–{self.offset + len(items)} / {total}件")
         self.previous_button.setEnabled(self.offset > 0)
         self.next_button.setEnabled(self.offset + self.page_size < total)
+        self._schedule_video_thumbnails()
+
+    def _schedule_video_thumbnails(self, *_):
+        if self.video_thumbnails and self.isVisible():
+            self.video_timer.start()
+
+    def _visible_video_thumbnails(self):
+        if not self.video_thumbnails or not self.isVisible():
+            return
+        viewport = self.list.viewport().rect()
+        keys = {key for key, entry in self.entries.items()
+                if not self.list.visualItemRect(entry).isEmpty()
+                and self.list.visualItemRect(entry).intersects(viewport)}
+        if keys == self.video_visible:
+            return
+        self.video_visible = keys
+        self.video_thumbnails.reset()
+        for key in self.entries:  # preserve display order
+            if key in keys and key not in self.video_completed:
+                self.video_thumbnails.request(
+                    self.by_id[key],
+                    lambda value, key=key, token=self.generation: self._video_thumbnail(key, token, value))
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._schedule_video_thumbnails()
+
+    def hideEvent(self, event):
+        if self.video_thumbnails:
+            self.video_timer.stop()
+            self.video_thumbnails.reset()
+            self.video_visible.clear()
+        super().hideEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._schedule_video_thumbnails()
 
     def _image_thumbnail(self, key, generation, image):
         if generation != self.generation or key not in self.entries or image is None or image.isNull():
@@ -174,7 +215,10 @@ class LibraryPage(QWidget):
             pass
 
     def _video_thumbnail(self, item_key, generation: int, pixmap) -> None:
-        if generation != self.generation or pixmap is None:
+        if generation != self.generation:
+            return
+        self.video_completed.add(item_key)
+        if pixmap is None:
             return
         entry = self.entries.get(item_key)
         if entry is not None:

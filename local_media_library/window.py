@@ -173,6 +173,8 @@ class MainWindow(QMainWindow):
     def open_video(self, item_key) -> None:
         item = self.video_page.by_id.get(item_key)
         if item:
+            self.video_page.video_timer.stop()
+            self.video_page.video_thumbnails.reset()
             self.video_player.open_item(item)
             self.show_page(self.video_player)
 

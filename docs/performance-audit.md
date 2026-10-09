@@ -43,3 +43,20 @@ high-resolution first-open latency and actual saved-video codec behavior.
 Repository queries still load all metadata; very large libraries may require Core
 query pagination after measurement. Viewer first-open decoding is still synchronous.
 Do not claim Phase 1 complete from these automated results.
+
+## Video-generation follow-up
+
+User reports initial video thumbnail generation is still heavy. Confirmed code
+queued every video in a 100-card page and did not cancel generation when hidden.
+This revision requests only cards intersecting the visible viewport after 350 ms
+of settled scrolling. Leaving the page cancels the decoder and queue; playback
+also cancels before opening the video. Image pages never create video decoders.
+Cached cards reuse their thumbnails. The decoder uses the first frame rather
+than seeking to three seconds, yields 500 ms between clips, and abandons a clip
+after ten seconds. A first frame may be black; no extra preview search is done.
+
+Tests verify hidden pages do not request decoding, only visible cards are
+requested before/after scrolling, hide/reset cancellation, cache reuse without
+reopening the video, and real fixture frame decoding. These structural checks
+do not measure CPU/GPU load for the user's actual codecs. No source-folder
+classification change: mixed saved roots still feed separate image/video pages.

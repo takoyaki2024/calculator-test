@@ -13,6 +13,11 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 
 ## Current checkpoint
 
+- Video thumbnail follow-up: viewport-only requests, page-leave/playback
+  cancellation, first-frame/no-seek decoding, cooldown and timeout. Image and
+  video pages/decoders remain separate; mixed source folders are unchanged.
+  This newer source requires fresh Windows packaging evidence.
+
 - Performance repair 2026-10-09: see `docs/performance-audit.md`. Bounded lists,
   worker image decoding, search debounce, lazy hidden pages, manga page reuse and
   unchanged-row scan storage implemented. Local tests: 23 passed, 1 skipped.
