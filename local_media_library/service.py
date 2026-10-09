@@ -9,9 +9,11 @@ from .scanner import SOURCE_MODES, ScanResult, Scanner
 
 
 class LibraryService:
-    def __init__(self, database: Database, scanner: Scanner | None = None):
+    def __init__(self, database: Database, scanner: Scanner | None = None,
+                 managed_directory: Path | None = None):
         self.database = database
-        self.scanner = scanner or Scanner()
+        self.managed_directory = managed_directory.resolve() if managed_directory is not None else None
+        self.scanner = scanner or Scanner((self.managed_directory,) if self.managed_directory else ())
 
     def add_source(self, path: Path, mode: str = "auto") -> SourceFolder:
         if mode not in SOURCE_MODES:
@@ -20,6 +22,8 @@ class LibraryService:
         if selected.is_symlink():
             raise ValueError("シンボリックリンクではなく実フォルダを選択してください")
         resolved = selected.resolve(strict=True)
+        if self.managed_directory and (resolved == self.managed_directory or self.managed_directory in resolved.parents):
+            raise ValueError("管理データのフォルダはメディアとして登録できません")
         if not resolved.is_dir():
             raise ValueError("通常のフォルダを選択してください")
         with self.database.transaction() as connection:

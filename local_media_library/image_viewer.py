@@ -33,6 +33,7 @@ class ImageViewer(QWidget):
 
     def open_item(self, item: ImageItem) -> None:
         self.item = item
+        self.zoom = 1.0
         reader = QImageReader(str(item.path))
         reader.setAutoTransform(True)
         image = reader.read()

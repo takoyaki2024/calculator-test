@@ -43,7 +43,8 @@ class MangaReader(QWidget):
         self.cached_page = None
         self.work = work
         self.pages = self.repository.pages(work.id)
-        self.index = min(work.last_page, max(0, len(self.pages) - 1))
+        self.index = min(self.repository.get_position(work.id), max(0, len(self.pages) - 1))
+        self.zoom = 1.0
         self.fit = True
         self._render()
 

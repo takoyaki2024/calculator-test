@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from PySide6.QtCore import QUrl, Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
@@ -62,7 +64,8 @@ class VideoPlayer(QWidget):
 
     def open_item(self, item: VideoItem) -> None:
         self.stop()
-        self.item = item
+        self.item = replace(item, position_ms=self.repository.get_position(item.id))
+        self.title.setText(item.title)
         if not item.path.is_file() or item.path.is_symlink():
             self.message.setText("動画ファイルが見つかりません")
             return
@@ -110,10 +113,11 @@ class VideoPlayer(QWidget):
 
     def stop(self) -> None:
         self.save_position()
+        self.ready = False
         self.save_timer.stop()
+        self.video.setFullScreen(False)
         self.player.stop()
         self.player.setSource(QUrl())
-        self.ready = False
 
     def enter_fullscreen(self) -> None:
         self.video.setFullScreen(True)

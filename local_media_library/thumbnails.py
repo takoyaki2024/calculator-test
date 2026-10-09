@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QIODevice, QSaveFile, QSize, Qt
 from PySide6.QtGui import QColor, QImage, QImageReader, QPainter, QPixmap
 
 
@@ -11,6 +12,7 @@ class ThumbnailCache:
     def __init__(self, directory: Path, max_bytes: int = 512 * 1024 * 1024):
         self.directory = directory
         self.max_bytes = max_bytes
+        self.needs_prune = False
         directory.mkdir(parents=True, exist_ok=True)
 
     def _key(self, source: Path, size: int, mtime_ns: int) -> Path:
@@ -24,7 +26,12 @@ class ThumbnailCache:
         pixmap = QPixmap(str(path))
         if pixmap.isNull():
             return None
-        path.touch(exist_ok=True)
+        # Cache maintenance must not turn a concurrently deleted file into an
+        # empty JPEG or discard an otherwise usable in-memory thumbnail.
+        try:
+            os.utime(path, None)
+        except OSError:
+            pass
         return pixmap
 
     def store(self, source: Path, size: int, mtime_ns: int, image: QImage,
@@ -35,7 +42,15 @@ class ThumbnailCache:
         painter = QPainter(canvas)
         painter.drawImage((target.width() - scaled.width()) // 2, (target.height() - scaled.height()) // 2, scaled)
         painter.end()
-        canvas.save(str(self._key(source, size, mtime_ns)), "JPG", 84)
+        output = QSaveFile(str(self._key(source, size, mtime_ns)))
+        if not output.open(QIODevice.OpenModeFlag.WriteOnly):
+            raise OSError(output.errorString())
+        if not canvas.save(output, "JPG", 84):
+            output.cancelWriting()
+            raise OSError("サムネイルを保存できません")
+        if not output.commit():
+            raise OSError(output.errorString())
+        self.needs_prune = True
         return QPixmap.fromImage(canvas)
 
     def image(self, source: Path, size: int, mtime_ns: int, target: QSize = QSize(220, 300)) -> QPixmap:
@@ -69,6 +84,7 @@ class ThumbnailCache:
         return QPixmap.fromImage(image)
 
     def prune(self) -> int:
+        self.needs_prune = False
         files = []
         total = 0
         for path in self.directory.glob("*.jpg"):

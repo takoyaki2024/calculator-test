@@ -13,6 +13,12 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 
 ## Current checkpoint
 
+- Release-candidate audit: read `docs/completion-audit.md`. Hidden image work,
+  late video-frame attribution, failed cache commits and stale reopen positions
+  were reproduced and repaired. Management-data exclusion and isolated periodic
+  cache pruning added. Local suite: 33 passed, 1 skipped. Fresh package required
+  for this audited revision; real Windows/user-media gate still pending.
+
 - Video thumbnail follow-up: viewport-only requests, page-leave/playback
   cancellation, first-frame/no-seek decoding, cooldown and timeout. Image and
   video pages/decoders remain separate; mixed source folders are unchanged.

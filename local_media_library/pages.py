@@ -54,6 +54,8 @@ class LibraryPage(QWidget):
         self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind == "動画" else None
         self.video_completed = set()
         self.video_visible = set()
+        self.image_requested = set()
+        self.search_pending = False
         self.video_timer = QTimer(self, singleShot=True, interval=350)
         self.video_timer.timeout.connect(self._visible_video_thumbnails)
         layout = QVBoxLayout(self)
@@ -100,6 +102,7 @@ class LibraryPage(QWidget):
         layout.addWidget(self.empty)
 
     def refresh(self) -> None:
+        self.search_pending = False
         self.search_timer.stop()
         self.offset = 0
         self.items = self.sorts.apply(self.load_items(self.search.text().strip()), self.sort.currentData() or "newest")
@@ -111,8 +114,8 @@ class LibraryPage(QWidget):
 
     def _populate(self):
         self.generation += 1
-        generation = self.generation
         self.thumbnail_pool.clear()
+        self.image_requested.clear()
         if self.video_thumbnails:
             self.video_thumbnails.reset()
             self.video_completed.clear()
@@ -149,18 +152,6 @@ class LibraryPage(QWidget):
             entry.setToolTip(str(item.path) if hasattr(item, "path") else item.title)
             self.list.addItem(entry)
             self.entries[item_key] = entry
-            if item_key in self.thumbnail_sources:
-                path, size, mtime = self.thumbnail_sources[item_key]
-                try:
-                    cached = self.thumbnails.cached(path, size, mtime)
-                except OSError:
-                    cached = None
-                if cached is not None:
-                    entry.setIcon(QIcon(cached))
-                else:
-                    worker = ThumbnailWorker(item_key, generation, path)
-                    worker.signals.finished.connect(self._image_thumbnail)
-                    self.thumbnail_pool.start(worker)
         self.empty.setVisible(not items)
         total = len(self.items)
         self.count_label.setText(f"{self.offset + 1 if total else 0}–{self.offset + len(items)} / {total}件")
@@ -169,16 +160,33 @@ class LibraryPage(QWidget):
         self._schedule_video_thumbnails()
 
     def _schedule_video_thumbnails(self, *_):
-        if self.video_thumbnails and self.isVisible():
+        if self.isVisible():
             self.video_timer.start()
 
     def _visible_video_thumbnails(self):
-        if not self.video_thumbnails or not self.isVisible():
+        if not self.isVisible():
             return
         viewport = self.list.viewport().rect()
         keys = {key for key, entry in self.entries.items()
                 if not self.list.visualItemRect(entry).isEmpty()
                 and self.list.visualItemRect(entry).intersects(viewport)}
+        if not self.video_thumbnails:
+            for key in self.entries:
+                if key not in keys or key in self.image_requested or key not in self.thumbnail_sources:
+                    continue
+                self.image_requested.add(key)
+                path, size, mtime = self.thumbnail_sources[key]
+                try:
+                    cached = self.thumbnails.cached(path, size, mtime)
+                except OSError:
+                    cached = None
+                if cached is not None:
+                    self.entries[key].setIcon(QIcon(cached))
+                else:
+                    worker = ThumbnailWorker(key, self.generation, path)
+                    worker.signals.finished.connect(self._image_thumbnail)
+                    self.thumbnail_pool.start(worker)
+            return
         if keys == self.video_visible:
             return
         self.video_visible = keys
@@ -191,11 +199,18 @@ class LibraryPage(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        if self.search_pending:
+            self.refresh()
         self._schedule_video_thumbnails()
 
     def hideEvent(self, event):
+        self.search_pending = self.search_pending or self.search_timer.isActive()
+        self.search_timer.stop()
+        self.video_timer.stop()
+        self.generation += 1
+        self.thumbnail_pool.clear()
+        self.image_requested.clear()
         if self.video_thumbnails:
-            self.video_timer.stop()
             self.video_thumbnails.reset()
             self.video_visible.clear()
         super().hideEvent(event)
@@ -205,7 +220,7 @@ class LibraryPage(QWidget):
         self._schedule_video_thumbnails()
 
     def _image_thumbnail(self, key, generation, image):
-        if generation != self.generation or key not in self.entries or image is None or image.isNull():
+        if generation != self.generation or not self.isVisible() or key not in self.entries or image is None or image.isNull():
             return
         try:
             path, size, mtime = self.thumbnail_sources[key]

@@ -23,18 +23,28 @@ class WorkerSignals(QObject):
 
 
 class ScanWorker(QRunnable):
-    def __init__(self, service: LibraryService, thumbnails=None):
+    def __init__(self, service: LibraryService):
         super().__init__()
         self.service = service
-        self.thumbnails = thumbnails
         self.signals = WorkerSignals()
 
     @Slot()
     def run(self) -> None:
         try:
-            if self.thumbnails:
-                self.thumbnails.prune()
             self.signals.finished.emit(self.service.scan_all())
+        except Exception as exc:
+            self.signals.failed.emit(str(exc))
+
+
+class CachePruneWorker(QRunnable):
+    def __init__(self, cache):
+        super().__init__()
+        self.cache = cache
+        self.signals = WorkerSignals()
+
+    def run(self):
+        try:
+            self.signals.finished.emit(self.cache.prune())
         except Exception as exc:
             self.signals.failed.emit(str(exc))
 
@@ -45,13 +55,18 @@ class MainWindow(QMainWindow):
         paths.ensure()
         self.paths = paths
         self.database = Database(paths.database)
-        self.service = LibraryService(self.database)
+        self.service = LibraryService(self.database, managed_directory=paths.data)
         self.mangas = MangaRepository(self.database)
         self.images = ImageRepository(self.database)
         self.videos = VideoRepository(self.database)
         self.thumbnails = ThumbnailCache(paths.thumbnails)
         self.pool = QThreadPool(self)
         self.scanning = False
+        self.pruning = False
+        self.closing = False
+        self.cache_timer = QTimer(self, interval=60000)
+        self.cache_timer.timeout.connect(self.prune_cache)
+        self.cache_timer.start()
         self.setWindowTitle("Local Media Library")
         self.resize(1200, 800)
         self.setMinimumSize(860, 580)
@@ -103,7 +118,10 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._startup)
 
     def _startup(self):
+        if self.closing:
+            return
         self.show_page(self.manga_page)
+        self.prune_cache(force=True)
         self.settings_page.set_sources(self.service.sources())
         if self.service.sources():
             self.scan_all()
@@ -136,17 +154,19 @@ class MainWindow(QMainWindow):
         self.scan_all()
 
     def scan_all(self) -> None:
-        if self.scanning:
+        if self.scanning or self.closing:
             return
         self.scanning = True
         self.statusBar().showMessage("スキャン中…")
-        worker = ScanWorker(self.service, self.thumbnails)
+        worker = ScanWorker(self.service)
         worker.signals.finished.connect(self._scan_finished)
         worker.signals.failed.connect(self._scan_failed)
         self.pool.start(worker)
 
     def _scan_finished(self, results) -> None:
         self.scanning = False
+        if self.closing:
+            return
         self.refresh_all()
         totals = [sum(row[index] for row in results.values()) for index in range(4)] if results else [0, 0, 0, 0]
         self.statusBar().showMessage(
@@ -155,8 +175,26 @@ class MainWindow(QMainWindow):
 
     def _scan_failed(self, message: str) -> None:
         self.scanning = False
+        if self.closing:
+            return
         self.statusBar().showMessage("スキャンに失敗しました")
         QMessageBox.warning(self, "スキャンエラー", message)
+
+    def prune_cache(self, force=False):
+        if self.closing or self.pruning or (not force and not self.thumbnails.needs_prune):
+            return
+        self.pruning = True
+        worker = CachePruneWorker(self.thumbnails)
+        worker.signals.finished.connect(self._cache_pruned)
+        worker.signals.failed.connect(self._cache_prune_failed)
+        self.pool.start(worker)
+
+    def _cache_pruned(self, _result):
+        self.pruning = False
+
+    def _cache_prune_failed(self, _message):
+        self.pruning = False
+        self.thumbnails.needs_prune = True
 
     def open_manga(self, item_key) -> None:
         item = self.manga_page.by_id.get(item_key)
@@ -179,6 +217,8 @@ class MainWindow(QMainWindow):
             self.show_page(self.video_player)
 
     def closeEvent(self, event) -> None:
+        self.closing = True
+        self.cache_timer.stop()
         self.video_player.stop()
         for page in (self.manga_page, self.image_page, self.video_page):
             page.generation += 1

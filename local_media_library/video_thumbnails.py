@@ -17,18 +17,28 @@ class VideoThumbnailer(QObject):
     def __init__(self, cache: ThumbnailCache, parent=None):
         super().__init__(parent)
         self.cache = cache
-        self.player = QMediaPlayer(self)
-        self.sink = QVideoSink(self)
-        self.player.setVideoOutput(self.sink)
-        self.player.mediaStatusChanged.connect(self._status)
-        self.player.errorOccurred.connect(lambda *_: self._finish(None))
-        self.sink.videoFrameChanged.connect(self._frame)
+        self.token = 0
+        self._create_decoder()
         self.queue = deque()
         self.current = None
         self.timeout = QTimer(self, singleShot=True, interval=10000)
         self.timeout.timeout.connect(lambda: self._finish(None))
         self.next_timer = QTimer(self, singleShot=True, interval=500)
         self.next_timer.timeout.connect(self._next)
+
+    def _create_decoder(self):
+        if hasattr(self, "player"):
+            self.player.stop()
+            self.player.setSource(QUrl())
+            self.player.deleteLater()
+            self.sink.deleteLater()
+        self.player = QMediaPlayer(self)
+        self.sink = QVideoSink(self)
+        self.player.setVideoOutput(self.sink)
+        token = self.token
+        self.player.mediaStatusChanged.connect(lambda status: self._status(status, token))
+        self.player.errorOccurred.connect(lambda *_: self._finish(None, token))
+        self.sink.videoFrameChanged.connect(lambda frame: self._frame(frame, token))
 
     def request(self, item: VideoItem, callback: Callable[[QPixmap | None], None]) -> None:
         try:
@@ -43,6 +53,7 @@ class VideoThumbnailer(QObject):
             self.next_timer.start()
 
     def reset(self) -> None:
+        self.token += 1
         self.timeout.stop()
         self.next_timer.stop()
         self.queue.clear()
@@ -51,6 +62,8 @@ class VideoThumbnailer(QObject):
         self.player.setSource(QUrl())
 
     def _next(self) -> None:
+        if self.current is not None:
+            return
         if not self.queue:
             self.current = None
             return
@@ -60,19 +73,21 @@ class VideoThumbnailer(QObject):
             self._finish(None)
             return
         self.timeout.start()
+        self.token += 1
+        self._create_decoder()
         self.player.setSource(QUrl.fromLocalFile(str(item.path)))
 
-    def _status(self, status) -> None:
-        if self.current is None:
+    def _status(self, status, token=None) -> None:
+        if self.current is None or (token is not None and token != self.token):
             return
         if status in (QMediaPlayer.MediaStatus.LoadedMedia, QMediaPlayer.MediaStatus.BufferedMedia):
             # First frame avoids seeking/decode work across a long GOP.
             self.player.play()
-        elif status == QMediaPlayer.MediaStatus.InvalidMedia:
+        elif status in (QMediaPlayer.MediaStatus.InvalidMedia, QMediaPlayer.MediaStatus.EndOfMedia):
             self._finish(None)
 
-    def _frame(self, frame) -> None:
-        if self.current is None or not frame.isValid():
+    def _frame(self, frame, token=None) -> None:
+        if self.current is None or (token is not None and token != self.token) or not frame.isValid():
             return
         item, _callback = self.current
         image = frame.toImage()
@@ -83,12 +98,13 @@ class VideoThumbnailer(QObject):
                 pixmap = None
             self._finish(pixmap)
 
-    def _finish(self, pixmap) -> None:
-        if self.current is None:
+    def _finish(self, pixmap, token=None) -> None:
+        if self.current is None or (token is not None and token != self.token):
             return
         self.timeout.stop()
         _item, callback = self.current
         self.current = None
+        self.token += 1
         self.player.stop()
         self.player.setSource(QUrl())
         callback(pixmap)

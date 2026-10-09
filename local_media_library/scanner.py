@@ -36,10 +36,18 @@ class ScanResult:
 
 
 class Scanner:
+    def __init__(self, excluded_roots: tuple[Path, ...] = ()):
+        self.excluded_roots = tuple(path.resolve() for path in excluded_roots)
+
+    def _excluded(self, path: Path) -> bool:
+        return any(path == root or root in path.parents for root in self.excluded_roots)
+
     def scan(self, root: Path, mode: str) -> ScanResult:
         if mode not in SOURCE_MODES:
             raise ValueError(f"unsupported source mode: {mode}")
         root = root.resolve(strict=True)
+        if self._excluded(root):
+            raise ValueError("管理データのフォルダはメディアとして登録できません")
         if not root.is_dir():
             raise NotADirectoryError(root)
 
@@ -54,7 +62,8 @@ class Scanner:
         for current_text, dirs, names in os.walk(root, topdown=True, onerror=walk_error, followlinks=False):
             current = Path(current_text)
             dirs[:] = sorted(
-                (name for name in dirs if not (current / name).is_symlink()), key=natural_key
+                (name for name in dirs if not (current / name).is_symlink()
+                 and not self._excluded(current / name)), key=natural_key
             )
             candidates: list[tuple[str, Candidate]] = []
             for name in sorted(names, key=natural_key):

@@ -16,6 +16,13 @@ class _Repository:
 
 
 class MangaRepository(_Repository):
+    def get_position(self, work_id: int) -> int:
+        with self.database.connect() as connection:
+            row = connection.execute("SELECT last_page FROM manga_works WHERE id=?", (work_id,)).fetchone()
+        if row is None:
+            raise KeyError(work_id)
+        return row[0]
+
     def list(self, query: str = "", include_missing: bool = False) -> tuple[MangaWork, ...]:
         sql = ("SELECT w.*,s.path root,(SELECT p.relative_path FROM manga_pages p "
                "WHERE p.work_id=w.id AND p.available=1 ORDER BY p.page_index LIMIT 1) cover "
@@ -66,6 +73,13 @@ class ImageRepository(_Repository):
 
 
 class VideoRepository(_Repository):
+    def get_position(self, item_id: int) -> int:
+        with self.database.connect() as connection:
+            row = connection.execute("SELECT position_ms FROM videos WHERE id=?", (item_id,)).fetchone()
+        if row is None:
+            raise KeyError(item_id)
+        return row[0]
+
     def list(self, query: str = "", include_missing: bool = False) -> tuple[VideoItem, ...]:
         sql = "SELECT v.*,s.path root FROM videos v JOIN sources s ON s.id=v.source_id"
         if not include_missing:

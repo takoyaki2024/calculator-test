@@ -52,7 +52,8 @@ def test_slow_decode_does_not_block_refresh(tmp_path, qapp, monkeypatch):
     page = LibraryPage("画像", lambda _: (item,), default_registry(), cache, "画像")
     try:
         page.refresh()  # returns even while decoder is held by an event
-        assert started.wait(2)
+        page.show()
+        assert wait_until(started.is_set)
         assert page.list.count() == 1
         release.set()
         assert wait_until(lambda: len(tuple(cache.directory.glob("*.jpg"))) == 1)
