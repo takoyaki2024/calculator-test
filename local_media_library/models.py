@@ -2,6 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class LibrarySlice(Generic[T]):
+    items: tuple[T, ...]
+    total: int
 
 
 @dataclass(frozen=True)
@@ -57,6 +66,7 @@ class VideoWork:
     title: str
     file_count: int
     mtime_ns: int
+    cover: VideoItem | None = None
 
     @property
     def id(self) -> tuple[int, str]:

@@ -36,9 +36,11 @@ class LibraryPage(QWidget):
     item_opened = Signal(object)
 
     def __init__(self, title: str, load_items: Callable, sorts: SortRegistry, thumbnails: ThumbnailCache,
-                 kind: str, auto_video_thumbnails: bool = True):
+                 kind: str, auto_video_thumbnails: bool = True, load_page: Callable | None = None):
         super().__init__()
         self.load_items = load_items
+        self.load_page = load_page
+        self.total = 0
         self.sorts = sorts
         self.thumbnails = thumbnails
         self.kind = kind
@@ -106,16 +108,40 @@ class LibraryPage(QWidget):
     def _activate(self, item):
         self.item_opened.emit(item.data(Qt.ItemDataRole.UserRole))
 
-    def refresh(self) -> None:
+    def refresh(self, *, preserve=False) -> None:
         self.search_pending = False
         self.search_timer.stop()
-        self.offset = 0
-        self.items = self.sorts.apply(self.load_items(self.search.text().strip()), self.sort.currentData() or "newest")
+        scroll = self.list.verticalScrollBar().value() if preserve else 0
+        current = self.list.currentItem()
+        selected = current.data(Qt.ItemDataRole.UserRole) if preserve and current else None
+        if not preserve:
+            self.offset = 0
+        self._load_current()
+        if selected in self.entries:
+            self.list.setCurrentItem(self.entries[selected])
+        self.list.doItemsLayout()
+        self.list.verticalScrollBar().setValue(scroll)
+
+    def _load_current(self):
+        query, sort = self.search.text().strip(), self.sort.currentData() or "newest"
+        if self.load_page:
+            result = self.load_page(query, offset=self.offset, limit=self.page_size, sorts=self.sorts, sort=sort)
+            self.total = result.total
+            if self.offset >= self.total and self.offset:
+                self.offset = max(0, ((self.total - 1) // self.page_size) * self.page_size)
+                result = self.load_page(query, offset=self.offset, limit=self.page_size, sorts=self.sorts, sort=sort)
+            self.items = result.items
+        else:
+            self.items = self.sorts.apply(self.load_items(query), sort)
+            self.total = len(self.items)
         self._populate()
 
     def _page(self, direction):
         self.offset = max(0, self.offset + direction * self.page_size)
-        self._populate()
+        if self.load_page:
+            self._load_current()
+        else:
+            self._populate()
 
     def _populate(self):
         self.generation += 1
@@ -125,7 +151,7 @@ class LibraryPage(QWidget):
             self.video_thumbnails.reset()
             self.video_completed.clear()
             self.video_visible.clear()
-        items = self.items[self.offset:self.offset + self.page_size]
+        items = self.items if self.load_page else self.items[self.offset:self.offset + self.page_size]
         def identity(item):
             prefix = ("video-work" if isinstance(item, VideoWork) else "manga" if isinstance(item, MangaWork)
                       else "image" if isinstance(item, ImageItem) else "video")
@@ -161,7 +187,7 @@ class LibraryPage(QWidget):
             self.list.addItem(entry)
             self.entries[item_key] = entry
         self.empty.setVisible(not items)
-        total = len(self.items)
+        total = self.total
         self.count_label.setText(f"{self.offset + 1 if total else 0}–{self.offset + len(items)} / {total}件")
         self.previous_button.setEnabled(self.offset > 0)
         self.next_button.setEnabled(self.offset + self.page_size < total)
@@ -198,6 +224,8 @@ class LibraryPage(QWidget):
         if not self.auto_video_thumbnails:
             for key in keys:
                 item = self.by_id[key]
+                if isinstance(item, VideoWork):
+                    item = item.cover
                 if not isinstance(item, VideoItem):
                     continue
                 try:
@@ -267,10 +295,11 @@ class VideoLibraryPage(LibraryPage):
         self.repository = repository
         self.current_work = None
         self.work_sort = "newest"
+        self.work_view = None
         # Avoid retaining this QWidget through its stored loader during Qt shutdown.
         page_ref = ref(self)
         super().__init__("動画 — 作品フォルダ", lambda query: page_ref()._load(query), sorts, thumbnails, "動画",
-                         auto_video_thumbnails=False)
+                         auto_video_thumbnails=False, load_page=lambda query, **kwargs: page_ref()._load_page(query, **kwargs))
         navigation = QHBoxLayout()
         self.back_button = QPushButton("作品一覧に戻る")
         self.back_button.clicked.connect(self.show_works)
@@ -290,11 +319,17 @@ class VideoLibraryPage(LibraryPage):
             return self.repository.works(query)
         return self.repository.in_work(*self.current_work.id, query)
 
+    def _load_page(self, query, **kwargs):
+        if self.current_work is None:
+            return self.repository.works_page(query, **kwargs)
+        return self.repository.page(query, work=self.current_work.id, **kwargs)
+
     def _activate(self, entry):
         key = entry.data(Qt.ItemDataRole.UserRole)
         item = self.by_id.get(key)
         if isinstance(item, VideoWork):
             self.work_sort = self.sort.currentData()
+            self.work_view = (self.search.text(), self.offset, self.list.verticalScrollBar().value(), key)
             self.current_work = item
             self.heading.setText(f"動画 — {item.title}")
             self.back_button.show()
@@ -316,6 +351,8 @@ class VideoLibraryPage(LibraryPage):
 
     def show_works(self):
         self.current_work = None
+        self.generate_button.setEnabled(True)
+        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
         self.heading.setText("動画 — 作品フォルダ")
         self.back_button.hide()
         self.generate_button.hide()
@@ -323,10 +360,23 @@ class VideoLibraryPage(LibraryPage):
         self.sort.blockSignals(True)
         self.sort.setCurrentIndex(max(0, self.sort.findData(self.work_sort)))
         self.sort.blockSignals(False)
-        self.refresh()
+        if self.work_view:
+            query, offset, scroll, selected = self.work_view
+            self.search.blockSignals(True)
+            self.search.setText(query)
+            self.search.blockSignals(False)
+            self.search_timer.stop()
+            self.offset = offset
+            self._load_current()
+            if selected in self.entries:
+                self.list.setCurrentItem(self.entries[selected])
+            self.list.doItemsLayout()
+            self.list.verticalScrollBar().setValue(scroll)
+        else:
+            self.refresh()
 
-    def refresh(self):
-        super().refresh()
+    def refresh(self, *, preserve=False):
+        super().refresh(preserve=preserve)
         self.generate_button.setEnabled(True)
         self.thumbnail_status.setText("動画サムネイルは自動生成しません")
 

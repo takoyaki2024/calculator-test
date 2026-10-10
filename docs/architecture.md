@@ -18,12 +18,13 @@ Only Core owns SQLite and source registration. Desktop pages call repositories a
 
 ## Original-file invariant
 
-The VideoRepository derives work-folder summaries from existing video references,
-keyed by source identity and relative directory, and exposes files directly in a
-work. The Desktop Video page navigates folders then videos; Image stays separate.
-Opening either video view reads existing cache but never requests video decoding.
-Single-file thumbnail generation is an explicit user operation, independently of
-Desktop Playback. No schema migration or original-file reorganization is needed.
+Video work-folder summaries and representative video references are persisted by Core
+scan storage, keyed by source identity and relative directory. Schema 3 migrates earlier
+management metadata transactionally. Core paged queries perform registered SQL sorting,
+literal Unicode search and counting; Desktop instantiates only the current 100 records.
+The Video page navigates works then videos; Image stays separate. Work covers reuse
+existing video cache. Single-file video generation remains an explicit user operation.
+See `large-library-audit.md` for the validated scope and remaining scaling limits.
 
 Scanner operations are limited to directory enumeration and metadata reads. Thumbnail generation and viewers open originals read-only. No application API exposes delete, move, rename or overwrite. Missing records are marked unavailable and retained.
 

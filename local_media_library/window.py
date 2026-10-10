@@ -12,8 +12,7 @@ from .models import VideoItem
 from .paths import AppPaths
 from .repositories import ImageRepository, MangaRepository, VideoRepository
 from .service import LibraryService
-from .sorts import default_registry, SortOption
-from .natural import natural_key
+from .sorts import default_registry, video_registry
 from .theme import APP_STYLE
 from .thumbnails import ThumbnailCache
 from .video_player import VideoPlayer
@@ -63,9 +62,11 @@ class MainWindow(QMainWindow):
         self.videos = VideoRepository(self.database)
         self.thumbnails = ThumbnailCache(paths.thumbnails)
         self.pool = QThreadPool(self)
+        self.pool.setMaxThreadCount(1)
         self.scanning = False
         self.pruning = False
         self.closing = False
+        self.startup_cache_check = True
         self.cache_timer = QTimer(self, interval=60000)
         self.cache_timer.timeout.connect(self.prune_cache)
         self.cache_timer.start()
@@ -89,10 +90,9 @@ class MainWindow(QMainWindow):
 
         manga_sorts = default_registry()
         image_sorts = default_registry()
-        video_sorts = default_registry()
-        video_sorts.register(SortOption("natural", "ファイル名順", lambda item: natural_key(item.title)))
-        self.manga_page = LibraryPage("漫画", self.mangas.list, manga_sorts, self.thumbnails, "漫画")
-        self.image_page = LibraryPage("画像", self.images.list, image_sorts, self.thumbnails, "画像")
+        video_sorts = video_registry()
+        self.manga_page = LibraryPage("漫画", self.mangas.list, manga_sorts, self.thumbnails, "漫画", load_page=self.mangas.page)
+        self.image_page = LibraryPage("画像", self.images.list, image_sorts, self.thumbnails, "画像", load_page=self.images.page)
         self.video_page = VideoLibraryPage(self.videos, video_sorts, self.thumbnails)
         self.settings_page = SettingsPage(paths.data)
         self.manga_reader = MangaReader(self.mangas)
@@ -124,7 +124,6 @@ class MainWindow(QMainWindow):
         if self.closing:
             return
         self.show_page(self.manga_page)
-        self.prune_cache(force=True)
         self.settings_page.set_sources(self.service.sources())
         if self.service.sources():
             self.scan_all()
@@ -143,7 +142,7 @@ class MainWindow(QMainWindow):
         self.dirty_pages.update((self.manga_page, self.image_page, self.video_page))
         current = self.stack.currentWidget()
         if current in self.dirty_pages:
-            current.refresh()
+            current.refresh(preserve=True)
             self.dirty_pages.discard(current)
         self.settings_page.set_sources(self.service.sources())
 
@@ -160,6 +159,7 @@ class MainWindow(QMainWindow):
         if self.scanning or self.closing:
             return
         self.scanning = True
+        self.scan_revision = self.service.revision
         self.statusBar().showMessage("スキャン中…")
         worker = ScanWorker(self.service)
         worker.signals.finished.connect(self._scan_finished)
@@ -170,7 +170,10 @@ class MainWindow(QMainWindow):
         self.scanning = False
         if self.closing:
             return
-        self.refresh_all()
+        if self.service.revision != self.scan_revision:
+            self.refresh_all()
+        else:
+            self.settings_page.set_sources(self.service.sources())
         totals = [sum(row[index] for row in results.values()) for index in range(4)] if results else [0, 0, 0, 0]
         self.statusBar().showMessage(
             f"漫画 {totals[0]} / 画像 {totals[1]} / 動画 {totals[2]} / 読み取りエラー {totals[3]}", 15000
@@ -184,8 +187,9 @@ class MainWindow(QMainWindow):
         QMessageBox.warning(self, "スキャンエラー", message)
 
     def prune_cache(self, force=False):
-        if self.closing or self.pruning or (not force and not self.thumbnails.needs_prune):
+        if self.closing or self.scanning or self.pruning or (not force and not self.startup_cache_check and not self.thumbnails.needs_prune):
             return
+        self.startup_cache_check = False
         self.pruning = True
         worker = CachePruneWorker(self.thumbnails)
         worker.signals.finished.connect(self._cache_pruned)

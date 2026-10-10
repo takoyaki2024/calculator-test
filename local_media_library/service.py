@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from contextlib import closing
 
 from .database import Database
 from .models import SourceFolder
@@ -14,6 +15,7 @@ class LibraryService:
         self.database = database
         self.managed_directory = managed_directory.resolve() if managed_directory is not None else None
         self.scanner = scanner or Scanner((self.managed_directory,) if self.managed_directory else ())
+        self.revision = 0
 
     def add_source(self, path: Path, mode: str = "auto") -> SourceFolder:
         if mode not in SOURCE_MODES:
@@ -36,7 +38,7 @@ class LibraryService:
         return SourceFolder(row["id"], resolved, row["mode"], bool(row["available"]))
 
     def sources(self) -> tuple[SourceFolder, ...]:
-        with self.database.connect() as connection:
+        with closing(self.database.connect()) as connection:
             rows = connection.execute("SELECT * FROM sources ORDER BY path COLLATE NOCASE").fetchall()
         return tuple(SourceFolder(r["id"], Path(r["path"]), r["mode"], bool(r["available"])) for r in rows)
 
@@ -55,8 +57,14 @@ class LibraryService:
         except (OSError, ValueError) as exc:
             with self.database.transaction() as connection:
                 connection.execute("UPDATE sources SET available=0,last_error=? WHERE id=?", (str(exc), source_id))
+                before = connection.total_changes
                 for table in ("manga_works", "images", "videos"):
-                    connection.execute(f"UPDATE {table} SET available=0 WHERE source_id=?", (source_id,))
+                    connection.execute(f"UPDATE {table} SET available=0 WHERE source_id=? AND available<>0", (source_id,))
+                changed = connection.total_changes != before
+                if changed:
+                    self.database.refresh_video_works(connection, source_id)
+            if changed:
+                self.revision += 1
             return 0, 0, 0, 1
         self._store(source_id, result)
         return len(result.mangas), len(result.images), len(result.videos), len(result.errors)
@@ -67,6 +75,8 @@ class LibraryService:
                 "UPDATE sources SET available=1,last_scan_ns=?,last_error=? WHERE id=?",
                 (time.time_ns(), "\n".join(result.errors), source_id),
             )
+            before = connection.total_changes
+            video_changed = False
             existing = {}
             seen = {table: set() for table in ("manga_works", "images", "videos", "manga_pages")}
             for table in ("manga_works", "images", "videos"):
@@ -77,19 +87,26 @@ class LibraryService:
                 "SELECT p.* FROM manga_pages p JOIN manga_works w ON w.id=p.work_id WHERE w.source_id=?", (source_id,))}
             for work in result.mangas:
                 seen["manga_works"].add(work.relative_dir)
-                connection.execute(
-                    "INSERT INTO manga_works(source_id,relative_dir,title,page_count,mtime_ns,available) "
-                    "VALUES(?,?,?,?,?,1) ON CONFLICT(source_id,relative_dir) DO UPDATE SET "
-                    "title=excluded.title,page_count=excluded.page_count,mtime_ns=excluded.mtime_ns,available=1 "
-                    "WHERE title<>excluded.title OR page_count<>excluded.page_count OR mtime_ns<>excluded.mtime_ns OR available<>1",
-                    (source_id, work.relative_dir, work.title, len(work.pages), work.mtime_ns),
-                )
-                work_id = connection.execute(
-                    "SELECT id FROM manga_works WHERE source_id=? AND relative_dir=?",
-                    (source_id, work.relative_dir),
-                ).fetchone()[0]
+                old_work = existing["manga_works"].get(work.relative_dir)
+                if old_work is not None and (old_work["title"], old_work["page_count"], old_work["mtime_ns"], old_work["available"]) == (work.title, len(work.pages), work.mtime_ns, 1):
+                    work_id = old_work["id"]
+                else:
+                    connection.execute(
+                        "INSERT INTO manga_works(source_id,relative_dir,title,page_count,mtime_ns,available) "
+                        "VALUES(?,?,?,?,?,1) ON CONFLICT(source_id,relative_dir) DO UPDATE SET "
+                        "title=excluded.title,page_count=excluded.page_count,mtime_ns=excluded.mtime_ns,available=1 "
+                        "WHERE title<>excluded.title OR page_count<>excluded.page_count OR mtime_ns<>excluded.mtime_ns OR available<>1",
+                        (source_id, work.relative_dir, work.title, len(work.pages), work.mtime_ns),
+                    )
+                    work_id = connection.execute(
+                        "SELECT id FROM manga_works WHERE source_id=? AND relative_dir=?",
+                        (source_id, work.relative_dir),
+                    ).fetchone()[0]
                 for index, page in enumerate(work.pages):
                     seen["manga_pages"].add((work_id, page.relative_path))
+                    old = existing["manga_pages"].get((work_id, page.relative_path))
+                    if old is not None and (old["page_index"], old["size"], old["mtime_ns"], old["available"]) == (index, page.size, page.mtime_ns, 1):
+                        continue
                     connection.execute(
                         "INSERT INTO manga_pages(work_id,relative_path,page_index,size,mtime_ns,available) "
                         "VALUES(?,?,?,?,?,1) ON CONFLICT(work_id,relative_path) DO UPDATE SET "
@@ -111,9 +128,20 @@ class LibraryService:
                         "WHERE title<>excluded.title OR size<>excluded.size OR mtime_ns<>excluded.mtime_ns OR available<>1",
                         (source_id, item.relative_path, title, item.size, item.mtime_ns),
                     )
+                    if table == "videos":
+                        connection.execute("UPDATE videos SET relative_dir=? WHERE source_id=? AND relative_path=?",
+                                           (Path(item.relative_path).parent.as_posix(), source_id, item.relative_path))
+                        video_changed = True
             # Only complete enumeration may transition genuinely unseen records.
             if not result.errors:
                 for table, rows in existing.items():
                     missing = [(row["id"],) for key, row in rows.items()
                                if key not in seen[table] and row["available"]]
                     connection.executemany(f"UPDATE {table} SET available=0 WHERE id=?", missing)
+                    if table == "videos" and missing:
+                        video_changed = True
+            changed = connection.total_changes != before
+            if video_changed:
+                self.database.refresh_video_works(connection, source_id)
+        if changed:
+            self.revision += 1

@@ -13,6 +13,13 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 
 ## Current checkpoint
 
+- Large-library follow-up (2026-10-10): see `docs/large-library-audit.md`.
+  Core SQL pages, schema-3 persisted video works, indexed cover/sort queries,
+  unchanged-scan reuse, deferred cache maintenance and work-return state implemented.
+  Cache remains 512 MiB; no CPU instrumentation. Local: 43 passed, one Windows-only
+  skip. Windows package verification pending. Actual home CPU and video decoder
+  stall remain unverified; video generation is still explicit single-file Qt.
+
 - Video folder follow-up: see `docs/video-folder-audit.md`. Production Video page
   groups existing records by source/folder, then opens videos inside the work.
   Automatic video thumbnail generation is disabled; existing cache displays,
