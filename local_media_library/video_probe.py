@@ -96,11 +96,11 @@ def run_probe(source: Path, report: Path) -> int:
                     elif state["name"] == "seek" and abs(player.player.position() - 2500) < 250:
                         result["seek"] = True
                         player.save_position()
-                        assert repository.list()[0].position_ms >= 2250
+                        assert repository.get_position(item.id) >= 2250
                         state.update(name="resume", frames=result["video_frames"])
                         result["probe_stage"] = "resume"
                         checkpoint()
-                        player.open_item(repository.list()[0])
+                        player.open_item(item)
                     elif state["name"] == "resume":
                         if player.ready and player.player.position() >= 2250 and result["video_frames"] > state["frames"]:
                             result["resume"] = True

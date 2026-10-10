@@ -54,3 +54,14 @@ Windows package startup/playback and representative-cover child-process probe.
 - Windows packaging adds a frozen-parent/frozen-worker probe for both distinct covers,
   cache reuse and unchanged originals, alongside the existing startup/playback gates.
   Windows results pending. Actual user media/display/outbound/CPU remain unverified.
+
+## Packaged playback gate regression and minimal repair
+
+The first Windows build passed source tests/startup, but the pre-existing playback probe
+failed after seek, before resume. It incorrectly checked/reopened `repository.list()[0]`.
+Adding the two new color fixtures made the list's newest entry a different video from
+the requested baseline fixture. The same failure was reproduced locally (9 decoded
+frames, pause/seek true, resume false). The probe now checks the selected item's ID and
+reopens that selected item. Desktop Player behavior was not changed. The same baseline
+probe with all three fixtures passes after the two-line correction. New Windows gate
+verification is required; the failed build is not distributed.
