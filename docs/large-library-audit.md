@@ -64,4 +64,19 @@ No new network/server/dependency/original mutation operation was added.
   baseline real video decode/cache reuse/regeneration and original boundary regressions.
 - Local suite: 43 passed, one packaged-Windows-only skip (7.72 seconds). This is not
   real Windows media/display/audio/CPU or outbound-connection validation.
-- Windows package evidence for this source will be recorded after CI.
+- Source `f895cf32a40e3866ad9e3042e9b720ec92d0a44b`, tree
+  `508cb3641375874211d8a0f675deafea8968ad42`: CI `38049848129` SUCCESS;
+  Windows package `38049848121` SUCCESS, including tests, portable EXE, startup,
+  baseline video decode and control probe. Artifact `11668583600`; outer SHA-256
+  `b9320ea46fdd23011d1351ba34c66798e3632104cd9026189998c628f0ced638`.
+  Inner ZIP: 60,541,697 bytes, archive integrity and absence of management DB checked.
+  Probe: Qt 6.12.0, 11 frames, 35 audio buffers, pause/seek/resume/fullscreen state PASS.
+  Physical visible display and audible output are explicitly unverified.
+- On this Linux synthetic on-disk dataset, first-page image retrieval was 0.0085s;
+  first-page persisted work retrieval was 0.0038s. These exclude scan/fixture creation,
+  UI decoding and Windows storage; they are not a user-machine performance guarantee.
+- Additional fault check: interruption during schema backfill rolls back column/index/
+  schema version changes. Existing cached representative video cover displays without
+  opening a decoder. Standalone startup smoke exits successfully.
+- Real user Windows home CPU, actual media and outbound traffic observation remain
+  pending. No main merge and no Phase 1 completion claim.

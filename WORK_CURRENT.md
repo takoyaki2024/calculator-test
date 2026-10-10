@@ -17,7 +17,9 @@ This is the continuation entrypoint for the Local Media Library project. Read th
   Core SQL pages, schema-3 persisted video works, indexed cover/sort queries,
   unchanged-scan reuse, deferred cache maintenance and work-return state implemented.
   Cache remains 512 MiB; no CPU instrumentation. Local: 43 passed, one Windows-only
-  skip. Windows package verification pending. Actual home CPU and video decoder
+  skip. Source `f895cf32a40e3866ad9e3042e9b720ec92d0a44b`: CI
+  `38049848129` and Windows package `38049848121` SUCCESS; artifact `11668583600`.
+  Packaged startup and baseline decode/control probe PASS. Actual home CPU and video decoder
   stall remain unverified; video generation is still explicit single-file Qt.
 
 - Video folder follow-up: see `docs/video-folder-audit.md`. Production Video page
