@@ -18,8 +18,11 @@ This is the continuation entrypoint for the Local Media Library project. Read th
   sequential owned worker process. Cached covers persist; per-file automatic
   generation remains off. Native stalls are ended by the parent's 15-second
   deadline; failures persist by fingerprint, with explicit selected-work retry.
-  Cache stays 512 MiB. Local: 47 passed, one Windows-only skip. Windows packaging
-  and frozen-worker cover probe pending; actual user-media/CPU remain unverified.
+  Cache stays 512 MiB. Local: 47 passed, one Windows-only skip. Final source
+  `72e89e07c923f6f4112b3bd7faa960fb4f205a23`: CI `38068958977` and Windows
+  package `38068958976` SUCCESS; artifact `11676516276`. Frozen worker cover probe
+  confirms two distinct work covers, persistent reuse and unchanged originals.
+  Actual user-media/CPU remain unverified.
 
 - Large-library follow-up (2026-10-10): see `docs/large-library-audit.md`.
   Core SQL pages, schema-3 persisted video works, indexed cover/sort queries,

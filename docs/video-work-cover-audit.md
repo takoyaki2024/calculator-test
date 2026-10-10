@@ -65,3 +65,20 @@ frames, pause/seek true, resume false). The probe now checks the selected item's
 reopens that selected item. Desktop Player behavior was not changed. The same baseline
 probe with all three fixtures passes after the two-line correction. New Windows gate
 verification is required; the failed build is not distributed.
+
+## Final Windows automation evidence
+
+- Final source `72e89e07c923f6f4112b3bd7faa960fb4f205a23`, tree
+  `cbe8ee1e5a162c06ba6c73e360f7864bc095bf6e`: CI `38068958977` SUCCESS;
+  Windows package `38068958976` SUCCESS, including source tests, EXE startup,
+  actual H.264/AAC decode/control probe, and frozen-parent/frozen-worker cover probe.
+- Cover probe: two works, two JPEGs, correct distinct frames, persistent reuse without
+  a decoder, original bytes unchanged: PASS. Playback: 11 video frames, 34 audio
+  buffers; pause/seek/resume/fullscreen state PASS. Physical display/audio unverified.
+- Artifact `11676516276`, outer ZIP SHA-256
+  `5ff22de7cfb7cf1731f81b95cae6a747b9bd1e5bf186cc3412de9527e9b631a9`.
+  Inner ZIP 60,646,752 bytes; archive integrity and absence of management DB checked.
+- Synthetic rendered work view shows each representative color under its correct
+  work identity. Linux lacks Japanese fonts; it is not Windows appearance validation.
+- Actual user Windows media/CPU/display/outbound gate remains pending. No Phase 1
+  completion claim, main merge, network feature, original mutation or CPU instrumentation.
