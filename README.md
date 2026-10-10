@@ -1,35 +1,32 @@
 # Local Media Library
 
-A local-first Windows media library for already-saved manga and video files.
+Windows PC に保存済みの漫画・画像・動画を、完全ローカルで整理・閲覧するためのアプリです。
 
-## Scope
+- ダウンロード、ブラウザー拡張、外部API、ログイン、テレメトリはありません。
+- 原本の削除・移動・改名・上書きは行いません。
+- 画面は `漫画`、`画像`、`動画`、`設定` に分かれています。
+- 画像と動画が同じ保存フォルダに混在していても、Scannerが判定して別々のLibraryへ表示します。
+- 漫画・画像・動画は別Repositoryとして扱い、Reader・Viewer・Playerも分離します。
+- LAN / iPhone は Phase 2 であり、この Windows Phase 1 には含みません。
 
-- Detect and index existing manga/video files without downloading, moving, or deleting originals.
-- Read manga and play video on Windows.
-- Open the library on an iPhone by scanning a QR code.
-- iPhone access is LAN-only and requires short-lived QR pairing.
-- Unauthenticated devices receive no library metadata, filenames, or thumbnails.
-- The existing downloader/browser-extension projects remain separate.
+## 開発実行
 
-## Architecture
+```powershell
+py -3.11 -m venv .venv
+.venv\Scripts\python -m pip install -e .[dev]
+.venv\Scripts\python -m local_media_library
+```
 
-- Library Core
-- Manga Reader
-- Video Player
-- Windows UI
-- LAN Viewer / API
-- iPhone Web UI
+データベースと再生成可能なサムネイルは、アプリの `data/` 以下に保存されます。開発実行時はリポジトリ直下、配布版はEXEの隣です。メディア原本とは分離されます。
 
-## Security baseline
+## フォルダ判定
 
-- LAN viewer is off by default and starts only when the user enables iPhone viewing.
-- Pairing QR uses a cryptographically random, short-lived one-time token.
-- A successful pairing receives a separate device credential.
-- Internet exposure, UPnP, router port forwarding, and cloud relay are out of scope.
-- The existing MangaReader localhost receiver is not reused or exposed.
-- Mobile access is read-only; it cannot delete or move original files.
-- No credentials, tokens, personal library paths, or user media are committed to this repository.
+登録時に `漫画フォルダ` または `画像・動画フォルダ` を選びます。
 
-## Development rule
+- 漫画フォルダでは、画像の入った各ディレクトリを1作品として扱います。
+- 画像・動画フォルダでは、混在した画像と動画を検出し、アプリ上の別々のLibraryに分類します。
+- 動画ページでは、動画の入った1フォルダを1作品として表示します。作品を開くと、そのフォルダ内の動画を選んで再生できます。画像ページとは分かれています。
+- 動画の作品一覧では、表示中の作品ごとに代表動画から表紙を1枚だけ生成し、次回以降も再利用します。作品内の全動画を自動生成することはありません。失敗した作品は選択して「選択した作品の表紙を再試行」を押せます。生成は1件ずつ別プロセスで行い、15秒で停止した処理を終了します。
+- 原本を移動して整理する必要はありません。Scannerが形式を判定し、ViewerまたはPlayerを開きます。
 
-Audit and test before implementation. Keep modules isolated so manga, video, LAN access, and UI can be changed independently.
+詳細は [Stage 0監査](docs/stage-0-audit.md) と [アーキテクチャ](docs/architecture.md) を参照してください。
