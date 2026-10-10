@@ -42,11 +42,24 @@ jobs:
             exit $process.ExitCode
           }
           Get-Content dist/video-probe.json
+      - name: Packaged representative cover child-process probe
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/LocalMediaLibrary/LocalMediaLibrary.exe").Path
+          $fixtures = (Resolve-Path "tests/fixtures").Path
+          $report = Join-Path (Resolve-Path "dist").Path "work-cover-probe.json"
+          $process = Start-Process -FilePath $exe -ArgumentList @("--work-cover-probe", $fixtures, "--probe-report", $report) -PassThru -Wait
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path dist/work-cover-probe.json) { Get-Content dist/work-cover-probe.json }
+            exit $process.ExitCode
+          }
+          Get-Content dist/work-cover-probe.json
       - uses: actions/upload-artifact@v4
         with:
           name: LocalMediaLibrary-Windows
           path: |
             dist/LocalMediaLibrary-Windows.zip
             dist/video-probe.json
+            dist/work-cover-probe.json
           retention-days: 7
           if-no-files-found: error

@@ -22,8 +22,11 @@ Video work-folder summaries and representative video references are persisted by
 scan storage, keyed by source identity and relative directory. Schema 3 migrates earlier
 management metadata transactionally. Core paged queries perform registered SQL sorting,
 literal Unicode search and counting; Desktop instantiates only the current 100 records.
-The Video page navigates works then videos; Image stays separate. Work covers reuse
-existing video cache. Single-file video generation remains an explicit user operation.
+The Video page navigates works then videos; Image stays separate. Visible work covers
+generate one representative frame each through a sequential owned child process and
+reuse the persistent cache. The Desktop enforces a 15-second child deadline; failed
+fingerprints are retained locally with explicit retry. Work contents never auto-generate
+all video thumbnails. Desktop Playback is independent of cover extraction.
 See `large-library-audit.md` for the validated scope and remaining scaling limits.
 
 Scanner operations are limited to directory enumeration and metadata reads. Thumbnail generation and viewers open originals read-only. No application API exposes delete, move, rename or overwrite. Missing records are marked unavailable and retained.

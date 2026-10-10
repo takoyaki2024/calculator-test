@@ -13,6 +13,14 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 
 ## Current checkpoint
 
+- Representative video covers (2026-10-11): see `docs/video-work-cover-audit.md`.
+  Visible work folders generate only one representative frame each through a
+  sequential owned worker process. Cached covers persist; per-file automatic
+  generation remains off. Native stalls are ended by the parent's 15-second
+  deadline; failures persist by fingerprint, with explicit selected-work retry.
+  Cache stays 512 MiB. Local: 47 passed, one Windows-only skip. Windows packaging
+  and frozen-worker cover probe pending; actual user-media/CPU remain unverified.
+
 - Large-library follow-up (2026-10-10): see `docs/large-library-audit.md`.
   Core SQL pages, schema-3 persisted video works, indexed cover/sort queries,
   unchanged-scan reuse, deferred cache maintenance and work-return state implemented.

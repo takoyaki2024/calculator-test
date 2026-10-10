@@ -14,3 +14,9 @@ ffmpeg -f lavfi -i 'testsrc2=size=160x90:rate=10' \
 ```
 
 No fixture generation or FFmpeg executable is needed by the application/CI.
+
+`work-red.mp4` and `work-blue.mp4`: original CC0 synthetic solid-color clips,
+one second, 64x64, H.264/yuv420p, no audio. These verify that different work
+references produce different real decoded frames, including the packaged worker.
+Generated once using the development environment's ffmpeg color source; no real
+user or third-party media is included.

@@ -12,6 +12,7 @@ from .models import ImageItem, MangaWork, SourceFolder, VideoItem, VideoWork
 from .sorts import SortRegistry
 from .thumbnails import ThumbnailCache
 from .video_thumbnails import VideoThumbnailer
+from .work_thumbnails import WorkThumbnailer
 
 
 class ThumbnailSignals(QObject):
@@ -36,7 +37,8 @@ class LibraryPage(QWidget):
     item_opened = Signal(object)
 
     def __init__(self, title: str, load_items: Callable, sorts: SortRegistry, thumbnails: ThumbnailCache,
-                 kind: str, auto_video_thumbnails: bool = True, load_page: Callable | None = None):
+                 kind: str, auto_video_thumbnails: bool = True, load_page: Callable | None = None,
+                 thumbnailer_factory=VideoThumbnailer):
         super().__init__()
         self.load_items = load_items
         self.load_page = load_page
@@ -55,9 +57,10 @@ class LibraryPage(QWidget):
         self.thumbnail_pool.setMaxThreadCount(2)
         self.search_timer = QTimer(self, singleShot=True, interval=250)
         self.search_timer.timeout.connect(self.refresh)
-        self.video_thumbnails = VideoThumbnailer(thumbnails, self) if kind == "動画" else None
+        self.video_thumbnails = thumbnailer_factory(thumbnails, self) if kind == "動画" else None
         self.video_completed = set()
         self.video_visible = set()
+        self.video_requested = set()
         self.image_requested = set()
         self.search_pending = False
         self.video_timer = QTimer(self, singleShot=True, interval=350)
@@ -151,6 +154,7 @@ class LibraryPage(QWidget):
             self.video_thumbnails.reset()
             self.video_completed.clear()
             self.video_visible.clear()
+            self.video_requested.clear()
         items = self.items if self.load_page else self.items[self.offset:self.offset + self.page_size]
         def identity(item):
             prefix = ("video-work" if isinstance(item, VideoWork) else "manga" if isinstance(item, MangaWork)
@@ -261,6 +265,7 @@ class LibraryPage(QWidget):
         if self.video_thumbnails:
             self.video_thumbnails.reset()
             self.video_visible.clear()
+            self.video_requested.clear()
         super().hideEvent(event)
 
     def resizeEvent(self, event):
@@ -289,7 +294,7 @@ class LibraryPage(QWidget):
 
 
 class VideoLibraryPage(LibraryPage):
-    """Folder works and their videos; opening a library never starts video decoding."""
+    """Visible works generate one cover each; work contents never auto-decode."""
 
     def __init__(self, repository, sorts, thumbnails):
         self.repository = repository
@@ -299,20 +304,54 @@ class VideoLibraryPage(LibraryPage):
         # Avoid retaining this QWidget through its stored loader during Qt shutdown.
         page_ref = ref(self)
         super().__init__("動画 — 作品フォルダ", lambda query: page_ref()._load(query), sorts, thumbnails, "動画",
-                         auto_video_thumbnails=False, load_page=lambda query, **kwargs: page_ref()._load_page(query, **kwargs))
+                         auto_video_thumbnails=False, load_page=lambda query, **kwargs: page_ref()._load_page(query, **kwargs),
+                         thumbnailer_factory=WorkThumbnailer)
         navigation = QHBoxLayout()
         self.back_button = QPushButton("作品一覧に戻る")
         self.back_button.clicked.connect(self.show_works)
-        self.generate_button = QPushButton("選択した動画のサムネイルを生成")
+        self.generate_button = QPushButton("選択した作品の表紙を再試行")
         self.generate_button.clicked.connect(self.generate_selected)
-        self.thumbnail_status = QLabel("動画サムネイルは自動生成しません")
+        self.thumbnail_status = QLabel(self._cover_help())
+        self.video_thumbnails.cancelled.connect(self._generation_cancelled)
         self.thumbnail_status.setWordWrap(True)
         navigation.addWidget(self.back_button)
         navigation.addWidget(self.generate_button)
         navigation.addWidget(self.thumbnail_status, 1)
         self.layout().insertLayout(1, navigation)
         self.back_button.hide()
-        self.generate_button.hide()
+
+    def _generation_cancelled(self):
+        self.generate_button.setEnabled(True)
+        self.thumbnail_status.setText(self._cover_help())
+
+    def _cover_help(self):
+        return ("作品ごとに表紙1枚。表示中の作品から順番に生成します" if self.current_work is None else
+                "動画を選択して再生できます。個別サムネイルは自動生成しません")
+
+    def _visible_video_thumbnails(self):
+        super()._visible_video_thumbnails()
+        if not self.isVisible() or self.current_work is not None:
+            return
+        viewport = self.list.viewport().rect()
+        works = {key: self.by_id[key] for key, entry in self.entries.items()
+                 if isinstance(self.by_id[key], VideoWork) and self.by_id[key].cover is not None
+                 and not self.list.visualItemRect(entry).isEmpty()
+                 and self.list.visualItemRect(entry).intersects(viewport)}
+        self.video_thumbnails.keep_visible(work.cover for work in works.values())
+        self.video_requested.intersection_update(works)
+        for key, work in works.items():
+            if key in self.video_requested or key in self.video_completed:
+                continue
+            self.video_requested.add(key)
+            self.video_thumbnails.request(work.cover,
+                lambda pixmap, key=key, generation=self.generation: self._work_cover(key, generation, pixmap))
+
+    def _work_cover(self, key, generation, pixmap):
+        if generation != self.generation:
+            return
+        self._video_thumbnail(key, generation, pixmap)
+        if pixmap is None and key in self.entries:
+            self.entries[key].setToolTip("表紙を生成できませんでした。作品を選択して再試行できます。\n" + self.video_thumbnails.last_error)
 
     def _load(self, query):
         if self.current_work is None:
@@ -333,7 +372,7 @@ class VideoLibraryPage(LibraryPage):
             self.current_work = item
             self.heading.setText(f"動画 — {item.title}")
             self.back_button.show()
-            self.generate_button.show()
+            self.generate_button.hide()
             self._clear_search()
             natural_index = self.sort.findData("natural")
             if natural_index >= 0:
@@ -352,10 +391,10 @@ class VideoLibraryPage(LibraryPage):
     def show_works(self):
         self.current_work = None
         self.generate_button.setEnabled(True)
-        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
+        self.thumbnail_status.setText(self._cover_help())
         self.heading.setText("動画 — 作品フォルダ")
         self.back_button.hide()
-        self.generate_button.hide()
+        self.generate_button.show()
         self._clear_search()
         self.sort.blockSignals(True)
         self.sort.setCurrentIndex(max(0, self.sort.findData(self.work_sort)))
@@ -378,23 +417,26 @@ class VideoLibraryPage(LibraryPage):
     def refresh(self, *, preserve=False):
         super().refresh(preserve=preserve)
         self.generate_button.setEnabled(True)
-        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
+        self.thumbnail_status.setText(self._cover_help())
 
     def _page(self, direction):
         super()._page(direction)
         self.generate_button.setEnabled(True)
-        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
+        self.thumbnail_status.setText(self._cover_help())
 
     def generate_selected(self):
         entry = self.list.currentItem()
         key = entry.data(Qt.ItemDataRole.UserRole) if entry else None
         item = self.by_id.get(key)
+        if isinstance(item, VideoWork):
+            item = item.cover
         if not isinstance(item, VideoItem):
-            self.thumbnail_status.setText("生成する動画を1本選択してください")
+            self.thumbnail_status.setText("表紙を再試行する作品を選択してください")
             return
         self.video_thumbnails.reset()
         self.generate_button.setEnabled(False)
-        self.thumbnail_status.setText("選択した1本を生成中…（10秒で中断を試みます）")
+        self.video_requested.clear()
+        self.thumbnail_status.setText("代表動画から表紙1枚を生成中…（15秒で生成処理を終了します）")
         generation = self.generation
         def finished(pixmap):
             if generation != self.generation:
@@ -403,11 +445,11 @@ class VideoLibraryPage(LibraryPage):
             self.generate_button.setEnabled(True)
             self.thumbnail_status.setText("生成完了" if pixmap is not None else
                                           "生成できませんでした：" + (self.video_thumbnails.last_error or "映像を取得できません"))
-        self.video_thumbnails.request(item, finished)
+        self.video_thumbnails.request(item, finished, retry=True)
 
     def showEvent(self, event):
         self.generate_button.setEnabled(True)
-        self.thumbnail_status.setText("動画サムネイルは自動生成しません")
+        self.thumbnail_status.setText(self._cover_help())
         super().showEvent(event)
 
 

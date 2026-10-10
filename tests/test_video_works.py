@@ -57,17 +57,21 @@ def test_folder_identity_scans_missing_and_originals(tmp_path):
     assert {p: sha256(p.read_bytes()).hexdigest() for p in hashes} == hashes
 
 
-def test_folder_navigation_never_autodecodes_and_only_selected_is_requested(tmp_path, qapp):
+def test_folder_navigation_generates_one_cover_per_visible_work_not_contents(tmp_path, qapp):
     _, _, _, _, repo = make_library(tmp_path)
     page = VideoLibraryPage(repo, default_registry(), ThumbnailCache(tmp_path / "cache"))
     requested = []
-    page.video_thumbnails.request = lambda item, callback: requested.append((item, callback))
+    page.video_thumbnails.request = lambda item, callback, **kwargs: requested.append((item, callback))
     page.refresh()
     page.show()
     qapp.processEvents()
     page.video_timer.stop()
     page._visible_video_thumbnails()
-    assert not requested
+    covers = [page.by_id[key].cover.id for key, entry in page.entries.items()
+              if page.list.visualItemRect(entry).intersects(page.list.viewport().rect())]
+    assert {item.id for item, _ in requested} == set(covers)
+    assert len(requested) == len(covers)
+    requested.clear()
     entry = next(page.list.item(i) for i in range(page.list.count())
                  if page.by_id[page.list.item(i).data(Qt.ItemDataRole.UserRole)].relative_dir == "作品A")
     opened = []
@@ -90,7 +94,7 @@ def test_folder_navigation_never_autodecodes_and_only_selected_is_requested(tmp_
     # stale callbacks cannot modify a new folder view
     page.show_works()
     requested[0][1](None)
-    assert "自動生成しません" in page.thumbnail_status.text()
+    assert "作品ごとに表紙1枚" in page.thumbnail_status.text()
     assert page.current_work is None
     assert page.list.count() == 4
     page.close()
@@ -119,12 +123,14 @@ def test_manual_real_video_cache_reuse_and_regeneration(tmp_path, qapp, monkeypa
     generated = list(cache.directory.glob("*.jpg"))
     assert len(generated) == 1
     decodes = []
-    original = page.video_thumbnails._create_decoder
-    monkeypatch.setattr(page.video_thumbnails, "_create_decoder", lambda: (decodes.append(1), original())[1])
+    original = page.video_thumbnails._next
+    monkeypatch.setattr(page.video_thumbnails, "_next", lambda: (decodes.append(1), original())[1])
     page.generate_selected()
     assert not decodes  # cache hit never opens a decoder
     generated[0].unlink()
     page.generate_selected()
+    page.video_thumbnails.next_timer.stop()
+    page.video_thumbnails._next()
     assert wait_until(lambda: page.generate_button.isEnabled())
     assert len(decodes) == 1
     assert page.thumbnail_status.text() == "生成完了"
@@ -154,9 +160,9 @@ def test_timeout_failure_and_natural_ui_sort(tmp_path, qapp):
     thumbnailer.current = thumbnailer.queue.popleft()
     thumbnailer.timeout.timeout.emit()
     assert page.generate_button.isEnabled()
-    assert "10秒以内" in page.thumbnail_status.text()
+    assert "15秒以内" in page.thumbnail_status.text()
     assert thumbnailer.current is None and not thumbnailer.queue
     page.show_works()
     assert page.sort.currentData() == "newest"
-    assert thumbnailer.player.source().isEmpty()
+    assert thumbnailer.process is None
     window.close()
