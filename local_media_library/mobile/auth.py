@@ -33,10 +33,22 @@ class Authorization:
             self.pending = None
             return None
 
-    def approve(self):
+    def pending_ticket(self):
         with self.lock:
             if not self.pending_challenge():
-                raise PermissionError('pairing expired')
+                return None
+            return self.pending[:2]
+
+    def has_session(self):
+        with self.lock:
+            self.sessions = {token: end for token, end in self.sessions.items() if end > self.clock()}
+            return bool(self.sessions)
+
+    def approve(self, expected_token):
+        with self.lock:
+            if (not self.pending_challenge() or not isinstance(expected_token, str) or
+                    not secrets.compare_digest(self.pending[0], expected_token)):
+                raise PermissionError('pairing expired or replaced')
             token = self.pending[0]
             self.sessions[token] = self.clock() + 8 * 3600
             self.pending = None

@@ -7,6 +7,9 @@ from pathlib import Path
 import secrets
 import ssl
 import subprocess
+import tempfile
+
+from cryptography.exceptions import InvalidSignature
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -43,10 +46,21 @@ def ensure_certificate(directory: Path, address: str):
     try:
         leaf = x509.load_pem_x509_certificate(leaf_file.read_bytes())
         ca = x509.load_der_x509_certificate(ca_file.read_bytes())
+        key = serialization.load_pem_private_key(key_file.read_bytes(), password=None)
+        leaf.verify_directly_issued_by(ca)
+        ca.verify_directly_issued_by(ca)
+        if (not isinstance(key, rsa.RSAPrivateKey) or key.key_size < 2048 or
+                key.public_key().public_numbers() != leaf.public_key().public_numbers() or
+                not ca.extensions.get_extension_for_class(x509.BasicConstraints).value.ca or
+                leaf.extensions.get_extension_for_class(x509.BasicConstraints).value.ca or
+                ExtendedKeyUsageOID.SERVER_AUTH not in leaf.extensions.get_extension_for_class(x509.ExtendedKeyUsage).value):
+            raise ValueError('inconsistent certificate bundle')
         names = leaf.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
         reusable = (ip in names.get_values_for_type(x509.IPAddress) and
-                    leaf.not_valid_after_utc > now + dt.timedelta(days=1) and key_file.is_file())
-    except (OSError, ValueError, x509.ExtensionNotFound):
+                    leaf.not_valid_before_utc <= now and ca.not_valid_before_utc <= now and
+                    leaf.not_valid_after_utc > now + dt.timedelta(days=1) and
+                    ca.not_valid_after_utc > now + dt.timedelta(days=1))
+    except (OSError, ValueError, TypeError, InvalidSignature, x509.ExtensionNotFound):
         reusable = False
     if not reusable:
         ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -71,11 +85,15 @@ def ensure_certificate(directory: Path, address: str):
                               serialization.PrivateFormat.PKCS8, serialization.NoEncryption())),
                            (leaf_file, leaf.public_bytes(serialization.Encoding.PEM)),
                            (ca_file, ca.public_bytes(serialization.Encoding.DER))):
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, 'wb') as out:
-                out.write(data)
-            if os.name != 'nt':
-                path.chmod(0o600)
+            fd, temporary = tempfile.mkstemp(prefix='.certificate-', dir=directory)
+            try:
+                with os.fdopen(fd, 'wb') as out:
+                    out.write(data)
+                    out.flush()
+                    os.fsync(out.fileno())
+                os.replace(temporary, path)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.load_cert_chain(leaf_file, key_file)

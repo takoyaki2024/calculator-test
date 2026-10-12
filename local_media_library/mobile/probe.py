@@ -51,7 +51,7 @@ def run_probe(fixtures, report):
             assert status==200 and json.loads(body)['challenge']==server.auth.pending_challenge()
             cookie=headers['Set-Cookie'].split(';')[0]
             assert call('GET','/api/library',cookie)[0]==401
-            server.auth.approve()
+            server.auth.approve(cookie.split('=', 1)[1])
             works=json.loads(call('GET','/api/library?category=video',cookie)[2])
             assert works['total']==1
             contents=json.loads(call('GET',f"/api/library?category=video&work={works['items'][0]['id']}",cookie)[2])

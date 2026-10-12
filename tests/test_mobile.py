@@ -72,7 +72,7 @@ def approve(mobile):
     cookie = headers['Set-Cookie'].split(';')[0]
     assert 'Secure; HttpOnly; SameSite=Strict' in headers['Set-Cookie']
     assert call(mobile, 'GET', '/api/library', cookie=cookie)[0] == 401
-    server.auth.approve()
+    server.auth.approve(cookie.split('=', 1)[1])
     return cookie
 
 
@@ -162,8 +162,8 @@ def test_authorization_deadlines_limits_and_unapproved_tokens():
     auth=Authorization(lambda:now[0]);token,challenge=auth.pair(auth.code)
     assert auth.status(token)=='pending' and auth.status('made-up')=='denied'
     now[0]=121
-    with pytest.raises(PermissionError):auth.approve()
-    now[0]=0;auth=Authorization(lambda:now[0]);token,_=auth.pair(auth.code);auth.approve()
+    with pytest.raises(PermissionError):auth.approve(token)
+    now[0]=0;auth=Authorization(lambda:now[0]);token,_=auth.pair(auth.code);auth.approve(token)
     now[0]=8*3600+1
     assert auth.status(token)=='denied'
     now[0]=0;auth=Authorization(lambda:now[0]);now[0]=301
@@ -239,3 +239,54 @@ def test_cross_site_get_and_catalog_bounded_pages(mobile):
     assert call(mobile,'GET','/api/library?category=image&offset=-1',cookie=cookie)[0]==400
     page=json.loads(call(mobile,'GET','/api/library?category=image&offset=24',cookie=cookie)[2])
     assert page['items']==[] and page['total']==1
+
+
+def test_desktop_approval_cannot_authorize_a_replacement_request(tmp_path,qapp):
+    from local_media_library.mobile.settings import MobileSettings
+    now=[0];auth=Authorization(lambda:now[0])
+    first,_=auth.pair(auth.code)
+    db=Database(tmp_path/'data/library.sqlite3')
+    widget=MobileSettings(db,tmp_path/'data')
+    widget.controller.auth=auth;widget.controller.server=object()
+    widget.origin='https://127.0.0.1:18766';widget.poll()
+    now[0]=121;auth.pending_challenge()
+    replacement,_=auth.pair(auth.code)
+    # User clicks based on the old displayed request before the next GUI poll.
+    widget.approve()
+    assert auth.status(replacement)=='pending'
+    assert auth.status(first)=='denied'
+    widget.controller.server=None;widget.close()
+
+
+@pytest.mark.parametrize('damage',['private_key','wrong_ca'])
+def test_certificate_recovers_from_interrupted_or_mixed_bundle(tmp_path,damage):
+    from local_media_library.mobile.certificates import ensure_certificate
+    from cryptography import x509
+    directory=tmp_path/'certificates'
+    _,ca_file,old_fingerprint=ensure_certificate(directory,'127.0.0.1')
+    if damage=='private_key':
+        (directory/'server-key.pem').write_bytes(b'interrupted synthetic key write')
+    else:
+        _,other_ca,_=ensure_certificate(tmp_path/'other','127.0.0.1')
+        ca_file.write_bytes(other_ca.read_bytes())
+    _,ca_file,fingerprint=ensure_certificate(directory,'127.0.0.1')
+    leaf=x509.load_pem_x509_certificate((directory/'server.pem').read_bytes())
+    ca=x509.load_der_x509_certificate(ca_file.read_bytes())
+    leaf.verify_directly_issued_by(ca)
+    assert fingerprint!=old_fingerprint
+
+
+@pytest.mark.parametrize('target',['original.mp4','existing.cer','new.cer'])
+def test_export_certificate_cannot_overwrite_originals(tmp_path,qapp,monkeypatch,target):
+    from local_media_library.mobile.settings import MobileSettings
+    from PySide6.QtWidgets import QFileDialog,QMessageBox
+    db=Database(tmp_path/'data/library.sqlite3');widget=MobileSettings(db,tmp_path/'data')
+    ca=tmp_path/'public.cer';ca.write_bytes(b'synthetic public certificate');widget.controller.ca_file=ca
+    path=tmp_path/target
+    if target!='new.cer':path.write_bytes(b'preserve original')
+    monkeypatch.setattr(QFileDialog,'getSaveFileName',lambda *a:(str(path),''))
+    warnings=[];monkeypatch.setattr(QMessageBox,'warning',lambda *a:warnings.append(a))
+    widget.export_certificate()
+    if target=='new.cer':assert path.read_bytes()==ca.read_bytes() and not warnings
+    else:assert path.read_bytes()==b'preserve original' and len(warnings)==1
+    widget.close()

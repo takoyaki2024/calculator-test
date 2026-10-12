@@ -74,5 +74,7 @@ jobs:
             dist/video-probe.json
             dist/work-cover-probe.json
             dist/mobile-probe.json
+            dist/browser-probe.json
+            dist/browser-ui.png
           retention-days: 7
           if-no-files-found: error

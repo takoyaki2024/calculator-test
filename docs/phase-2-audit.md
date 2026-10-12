@@ -105,3 +105,23 @@ are not published. Certificate signing root key is discarded after generation.
   Actual iPhone certificate fingerprint inspection/bootstrap, verified Safari
   connection, visibility, audio/seek and normal-use outbound observation still
   require the real Windows+iPhone. Do not mark Phase 2 complete or merge main.
+
+## Follow-up audit — 2026-10-12, requested before final delivery
+
+Reproduced against delivered runtime: a pending request can expire and be replaced
+between Desktop polling and a user's approval click; the old UI approves the new
+request because approval has no displayed-request identity. Test shows replacement
+session changes to approved. Fix must bind approval to the exact opaque ticket
+shown by the GUI, with atomic comparison in Authorization.
+
+Reproduced interrupted/mixed certificate bundles: corrupt private key causes a
+permanent SSL start error; swapping public CA leaves cached leaf/CA inconsistent.
+Cache validation checks neither signing chain nor key/leaf match. Fix must validate
+both before reuse and safely regenerate management certificates on inconsistency.
+
+Actual-browser interaction was not previously verified. Add a Windows Edge browser
+integration gate (existing system browser, fresh temporary profile) to exercise the
+served assets, pairing, manga page changes, images, work navigation, video decode,
+search and sort. This is distinct from Safari trust/bootstrap and physical audio.
+Dedicated Codex Security workflow cannot run here: its shared prologue/core references
+and scan tools are unavailable. No formal Codex Security report/PASS is claimed.

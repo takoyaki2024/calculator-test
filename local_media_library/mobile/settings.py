@@ -11,6 +11,7 @@ from .server import MobileServer, private_address
 class MobileSettings(QWidget):
     def __init__(self, database, managed):
         super().__init__()
+        self.pending_token = None
         self.controller = MobileServer(MobileCatalog(database), managed)
         layout = QVBoxLayout(self)
         heading = QLabel('iPhoneから閲覧 — 自宅内限定')
@@ -103,11 +104,13 @@ class MobileSettings(QWidget):
         if not self.controller.server:
             return
         auth = self.controller.auth
-        challenge = auth.pending_challenge()
+        ticket = auth.pending_ticket()
+        self.pending_token = ticket[0] if ticket else None
+        challenge = ticket[1] if ticket else None
         self.approve_button.setEnabled(bool(challenge))
         if challenge:
             self.pending.setText(f'iPhoneから接続申請：確認番号 {challenge}。同じ番号がiPhoneに表示されている場合だけ許可してください。')
-        elif auth.sessions:
+        elif auth.has_session():
             self.pending.setText('1台のiPhoneに閲覧を許可しています。OFFで解除できます。')
         else:
             self.pending.setText('接続申請待ち。コードが期限切れ・入力上限の場合はOFF→ONで作り直せます。')
@@ -116,16 +119,19 @@ class MobileSettings(QWidget):
 
     def approve(self):
         try:
-            self.controller.auth.approve()
+            self.controller.auth.approve(self.pending_token)
+            self.controller.close_bootstrap()
             self.state.setText(f'閲覧先：{self.origin}\n接続コードは失効済み。閲覧許可は最長8時間、OFF・終了で解除されます。')
             self.poll()
         except PermissionError:
-            self.pending.setText('申請が期限切れです。OFF→ONで再接続してください。')
+            self.pending.setText('申請が期限切れ、または変わりました。新しい確認番号を照合してから許可してください。')
+            self.approve_button.setEnabled(False)
 
     def stop(self):
         self.timer.stop()
         self.controller.stop()
         self.state.setText('OFF — 接続許可をすべて解除しました。')
+        self.pending_token = None
         self.pending.clear()
         self.certificate_label.clear()
         self.address.setEnabled(True)
@@ -152,6 +158,10 @@ class MobileSettings(QWidget):
         if filename:
             try:
                 from pathlib import Path
-                Path(filename).write_bytes(self.controller.ca_file.read_bytes())
+                target = Path(filename)
+                if target.suffix.lower() != '.cer':
+                    raise OSError('certificate extension required')
+                with target.open('xb') as output:
+                    output.write(self.controller.ca_file.read_bytes())
             except OSError:
-                QMessageBox.warning(self, '証明書を保存できません', '保存先を確認してください。')
+                QMessageBox.warning(self, '証明書を保存できません', '新しい .cer ファイル名を選んでください。既存ファイルには上書きしません。')
