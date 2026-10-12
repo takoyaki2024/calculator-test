@@ -125,3 +125,19 @@ served assets, pairing, manga page changes, images, work navigation, video decod
 search and sort. This is distinct from Safari trust/bootstrap and physical audio.
 Dedicated Codex Security workflow cannot run here: its shared prologue/core references
 and scan tools are unavailable. No formal Codex Security report/PASS is claimed.
+
+The follow-up also closes the public-certificate Save As overwrite route: only a
+new .cer file can be written, with exclusive creation; choosing an existing media
+file or existing certificate cannot overwrite it. API media writes remain absent.
+
+Mobile cached-thumbnail audit: a detached image with loading=lazy was only attached
+by its load callback, so it could remain deferred forever. Attach the image before
+lazy loading, and replace it with the placeholder only on failure. Add an actual
+browser assertion that the known cached 220-pixel thumbnail decodes in the card.
+No new thumbnail generator or per-video decoding is introduced by this correction.
+
+Updates must automatically accept either the previously delivered cover build or
+the earlier iPhone candidate. Multi-base manifests select only a complete matching
+application-file set, keep the same guarded staged/backup path, and preserve data.
+Windows tests additionally inject a copy failure after an earlier application file
+was replaced, then require byte-for-byte restoration of the original app files.

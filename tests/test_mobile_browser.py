@@ -47,6 +47,7 @@ def test_mobile_in_real_edge(mobile):
         assert page.locator('#position').text_content()=='1 / 3'
         page.locator('#close').click();page.locator('[data-category=image]').click()
         page.wait_for_function("() => (document.querySelector('.card .name')?.textContent==='日本語')")
+        page.wait_for_function("() => (document.querySelector('.card img')?.naturalWidth===220)")
         page.locator('.card').click()
         page.wait_for_function("() => (document.querySelector('#display img')?.naturalWidth===32)")
         page.locator('#close').click();page.locator('[data-category=video]').click()

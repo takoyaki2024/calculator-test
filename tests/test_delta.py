@@ -42,9 +42,15 @@ def test_delta_roundtrip_and_no_data_or_unchanged_payload(tmp_path):
 
 
 @pytest.mark.skipif(os.name!='nt',reason='requires real Windows PowerShell updater')
-@pytest.mark.parametrize('scenario',['apply','wrong_old','damaged_payload','rollback'])
+@pytest.mark.parametrize('scenario',['apply','wrong_old','damaged_payload','rollback','second_base'])
 def test_windows_offline_update_and_data_preservation(tmp_path,scenario):
     before,after,output,manifest=inputs(tmp_path)
+    if scenario=='second_base':
+        before={**before,'LocalMediaLibrary.exe':b'other supported synthetic app'}
+        alternate=tmp_path/'alternate.zip'
+        with zipfile.ZipFile(alternate,'w') as z:
+            for path,data in before.items():z.writestr('LocalMediaLibrary/'+path,data)
+        manifest=module.build([tmp_path/'before.zip',alternate],tmp_path/'after.zip',output)
     patch=tmp_path/'patch';patch.mkdir()
     with zipfile.ZipFile(output) as z:z.extractall(patch)
     target=tmp_path/'日本語 app folder';target.mkdir()
@@ -61,7 +67,7 @@ def test_windows_offline_update_and_data_preservation(tmp_path,scenario):
     command=['powershell.exe','-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',str(patch/'update.ps1'),'-TargetDirectory',str(target),'-NonInteractive']
     result=subprocess.run(command,capture_output=True,timeout=30)
     assert db.read_bytes()==b'keep DB cache and settings'
-    if scenario=='apply':
+    if scenario in ('apply','second_base'):
         assert result.returncode==0,result.stdout.decode(errors='replace')+result.stderr.decode(errors='replace')
         for path,data in after.items():assert (target/path).read_bytes()==data
         assert not (target/'_internal/removed.dll').exists()

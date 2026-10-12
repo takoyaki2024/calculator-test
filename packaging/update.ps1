@@ -41,10 +41,20 @@ try {
         if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (HashFile $file) -ne $entry.sha256) { $already = $false; break }
     }
     if ($already) { Write-Host 'This update is already applied.'; exit 0 }
-    foreach ($entry in $manifest.before) {
-        $file = SafePath $target $entry.path
-        if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (HashFile $file) -ne $entry.sha256) { throw ('Unsupported or modified old version: ' + $entry.path) }
+    $versions = @($manifest)
+    if ($manifest.PSObject.Properties.Name -contains 'variants') { $versions = @($manifest.variants) }
+    $selected = $null
+    foreach ($version in $versions) {
+        $matches = $true
+        foreach ($entry in $version.before) {
+            $file = SafePath $target $entry.path
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (HashFile $file) -ne $entry.sha256) { $matches = $false; break }
+        }
+        if ($matches) { $selected = $version; break }
     }
+    if (-not $selected) { throw 'Unsupported or modified old version. No application files were changed.' }
+    $manifest.before = $selected.before
+    $manifest.changed = $selected.changed
     foreach ($entry in $manifest.changed) {
         $old[$entry.path] = $entry.old_sha256
         $file = SafePath $target $entry.path
