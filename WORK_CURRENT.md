@@ -1,0 +1,129 @@
+# Current work
+
+This is the continuation entrypoint for the Local Media Library project. Read this file, then `docs/stage-0-audit.md`, `docs/architecture.md`, and `docs/test-matrix.md` before changing code.
+
+## Product boundary — LOCKED (Phase 1 baseline; authorized Phase 2 exception below)
+
+- Windows Phase 1 is a completely local Library + Viewer for already-saved manga, images and videos.
+- It has no downloader, browser extension, receiver, updater, cloud/API/login, telemetry, advertising, analytics, automatic crash upload, LAN server or iPhone UI.
+- Runtime must not transmit filenames, paths, history, thumbnails, metadata or media.
+- Originals are read-only: no delete, move, rename or overwrite operation.
+- Source registration has two categories: Manga, and mixed Image/Video. Scanner classifies the latter into separate Image and Video libraries. Manga, Image and Video have separate pages, models, repositories and type-specific viewers. Desktop UI uses Core APIs, never SQL.
+- LAN/iPhone is a later Phase 2 and must not block or enter Phase 1.
+
+## Phase 2 authorization — 2026-10-12
+
+The user explicitly accepted adding iPhone viewing over home Wi-Fi with HTTPS and
+PC-approved-device authorization. This permits only explicitly enabled local
+transmission to the approved phone and supersedes the earlier LAN/iPhone deferral; read-only originals, no external services/downloaders,
+no private data in Git remain LOCKED. Optional mobile module starts OFF and is
+loaded only on opening mobile settings. See `docs/phase-2-audit.md`.
+Next deliveries use validated changed-files-only updates, preserving data.
+
+## Current checkpoint
+
+- Phase 2 follow-up audited delivery (2026-10-12): read `docs/phase-2-audit.md`
+  and `docs/iphone-guide.md`. Three baseline failure cases reproduced and fixed:
+  request identity bound to PC approval, interrupted/mixed certificate recovery,
+  plus exclusive .cer export preventing any original-file overwrite. Mobile lazy
+  thumbnail attachment corrected; no new video-generation work. Final runtime
+  `ddd1a80a` CI `38221276878` and Windows `38221276930` SUCCESS, including real
+  Edge mobile-width UI, decoded cached thumbnail/image/video, manga/navigation,
+  search/sort/revoke, PowerShell rollback/multi-base updates and packaged probes.
+  Delivered revised 6,564,389-byte delta recognizes either prior cover build or
+  first iPhone candidate and preserves all data. Actual iPhone certificate transfer/
+  trust, Safari/physical audio/real codecs and outbound observation remain the gate;
+  do not claim real-device Phase 2 complete. Dedicated Security service unavailable,
+  no formal scan PASS claim. Keep distribution-file identity privately.
+
+- Representative video covers (2026-10-11): see `docs/video-work-cover-audit.md`.
+  Visible work folders generate only one representative frame each through a
+  sequential owned worker process. Cached covers persist; per-file automatic
+  generation remains off. Native stalls are ended by the parent's 15-second
+  deadline; failures persist by fingerprint, with explicit selected-work retry.
+  Cache stays 512 MiB. Local: 47 passed, one Windows-only skip. Final source
+  `72e89e07c923f6f4112b3bd7faa960fb4f205a23`: CI `38068958977` and Windows
+  package `38068958976` SUCCESS; artifact `11676516276`. Frozen worker cover probe
+  confirms two distinct work covers, persistent reuse and unchanged originals.
+  Actual user-media/CPU remain unverified.
+
+- Large-library follow-up (2026-10-10): see `docs/large-library-audit.md`.
+  Core SQL pages, schema-3 persisted video works, indexed cover/sort queries,
+  unchanged-scan reuse, deferred cache maintenance and work-return state implemented.
+  Cache remains 512 MiB; no CPU instrumentation. Local: 43 passed, one Windows-only
+  skip. Source `f895cf32a40e3866ad9e3042e9b720ec92d0a44b`: CI
+  `38049848129` and Windows package `38049848121` SUCCESS; artifact `11668583600`.
+  Packaged startup and baseline decode/control probe PASS. Actual home CPU and video decoder
+  stall remain unverified; video generation is still explicit single-file Qt.
+
+- Video folder follow-up: see `docs/video-folder-audit.md`. Production Video page
+  groups existing records by source/folder, then opens videos inside the work.
+  Automatic video thumbnail generation is disabled; existing cache displays,
+  selected single-file generation is explicit and reports failures. Images remain
+  separate. iPhone/LAN stays Phase 2. Local 37 passed, one Windows-only skip,
+  three clean full-suite exits after Qt fixture cleanup; standalone smoke PASS.
+  Source `a53477be610a28fcfc574897d237932b7b1e3342`: CI `37928546383`
+  and Windows package `37928546435` SUCCESS, including startup and real video
+  decode/control probe. Artifact `11615531271`. Actual user CPU/media and
+  outbound-connection gate remain pending; no main merge.
+
+- Release-candidate audit: read `docs/completion-audit.md`. Hidden image work,
+  late video-frame attribution, failed cache commits and stale reopen positions
+  were reproduced and repaired. Management-data exclusion and isolated periodic
+  cache pruning added. Local suite: 33 passed, 1 skipped, three repeated runs
+  passed. Audited source `6bd18e138ab24760aa8f7d41b530a6acf85a05c3` passed
+  CI `37923744574` and Windows package `37923744564`, including packaged startup
+  and decode/control probe (11 frames, 35 audio buffers). Artifact `11612952608`.
+  Real Windows/user-media/outbound-connection gate still pending; no main merge.
+
+- Video thumbnail follow-up: viewport-only requests, page-leave/playback
+  cancellation, first-frame/no-seek decoding, cooldown and timeout. Image and
+  video pages/decoders remain separate; mixed source folders are unchanged.
+  Source `5fbde08dfb23c2e6da822c53d2c3d7e46f6c2a49`: local 25 passed,
+  1 Windows-only skip; CI `37922156852` and Windows package `37922156936`
+  SUCCESS. Packaged startup and video decode/control probe PASS (11 frames,
+  35 audio buffers). Artifact `11611594442`. User-media performance remains
+  unverified; do not claim Phase 1 complete.
+
+- Performance repair 2026-10-09: see `docs/performance-audit.md`. Bounded lists,
+  worker image decoding, search debounce, lazy hidden pages, manga page reuse and
+  unchanged-row scan storage implemented. Local tests: 23 passed, 1 skipped.
+  Previous Windows package evidence below does NOT certify this newer source.
+- Performance source `f23ff415351f2813d002e01db630dfc1f93b4b6f`:
+  CI `37920396468` and Windows package `37920396498` SUCCESS.
+  New artifact `11611811371`; packaged startup and video probe PASS
+  (11 video frames, 34 audio buffers; pause/seek/resume/fullscreen state).
+  User-machine performance and outbound-connection observation remain pending.
+
+- Base repository: `takoyaki2024/calculator-test`
+- Base commit: `c85ac82d8d675771864ab1c9aa7a2e46717f565a`
+- Working branch: `feature/local-media-library`
+- Stage 0 audit: complete and recorded.
+- Stage 1 Core/SQLite/scanner/classification/minimum library: implemented; automated tests pass.
+- Stage 2 manga reader/image viewer/video player: implemented; automated synthetic-media tests pass.
+- Stage 3 search/sort/thumbnail cache/UX: implemented; automated tests pass.
+- Stage 4 automated validation: PASS for separate Manga/Image/Video pages at source commit `b7746c1043ff5fc00ed6292a8abb92d812cb266c`.
+- CI run `37736627021`: SUCCESS on Python 3.11 and 3.12.
+- Windows package run `37736627019`: SUCCESS. Tests, one-folder EXE, waited startup smoke, waited packaged video decode/control probe, and artifact upload passed.
+- Packaged probe: 11 decoded video frames, 36 decoded audio buffers, pause/seek/resume/fullscreen state PASS. Visible display and audible speaker output remain explicitly unverified.
+- Windows artifact ID `11531737732`; 59,086,549 bytes; artifact SHA-256 `c8fa169cbefa6e34597cabb904738557d3f89064d86942d73fffa6e65e2fd5d5`.
+- Real Windows/user-media/outbound-connection gate: pending and must not be claimed by automation.
+
+## Verified automated behavior
+
+- Idempotent scans; two source categories (Manga and mixed Image/Video); three separate media libraries and records; Japanese and nested long paths.
+- Natural page ordering; explicit source modes; temporary and unsupported files ignored; symlinks excluded.
+- Missing roots/items become unavailable without deleting database history.
+- Incomplete enumeration does not mark unseen records missing.
+- SQLite application identity, transactional scan storage, schema migration and retained reader/player position.
+- Scanning does not mutate source bytes.
+- Image/manga thumbnails decode at reduced size, regenerate from originals and use a bounded disposable cache.
+- Video thumbnails decode one frame through Qt Multimedia.
+- Synthetic MP4 H.264/AAC probe requires decoded video frames and audio buffers, pause, seek, saved-position reopen and fullscreen state.
+- Phase 1 modules have no downloader/outbound-network/analytics clients. Opt-in Phase 2 owns inbound local HTTPS. Static checks do not replace real normal-use connection observation.
+
+## Stop/gate
+
+Continue autonomously through CI and packaged Windows automation. Stop only when the next result depends on the user's real Windows display/audio, actual saved-folder structure/codecs, or outbound-connection observation. Do not merge to `main` without explicit approval. Do not publish user data or paths.
+
+Automated work is now at that stop gate. The next action is one real Windows run using representative saved folders: inspect manga grouping/page order, image/video thumbnails, visible image/video, audible audio, playback controls, restart/resume, rescan, and no unexpected outbound connections. Do not mark Phase 1 complete or merge to `main` before this passes.
