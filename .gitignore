@@ -11,3 +11,8 @@ data/
 *.db*
 *.zip
 local_media_library.egg-info/
+
+# Local certificate exports/keys must never be committed.
+*.cer
+*.pem
+*.key

@@ -141,3 +141,59 @@ the earlier iPhone candidate. Multi-base manifests select only a complete matchi
 application-file set, keep the same guarded staged/backup path, and preserve data.
 Windows tests additionally inject a copy failure after an earlier application file
 was replaced, then require byte-for-byte restoration of the original app files.
+
+## Follow-up result and delivered revision
+
+- Baseline reproduction: three failures confirmed stale Desktop approval authorizes
+  a replacement, corrupt key prevents startup, and a mixed CA/leaf remains invalid.
+  All three now pass. Approval requires the exact displayed opaque ticket; cached
+  certificates require valid signatures, matching key and certificate, proper CA
+  and server purpose, address and validity. Writes are staged/fsynced then replaced;
+  inconsistent interrupted bundles regenerate safely. Generated CA signing key is
+  still not saved. Certificate export cannot overwrite any existing file.
+- Local full follow-up suite: 64 passed, 6 platform skips before the additional
+  second-base updater case; the delta builder roundtrip passes locally. No timings
+  or CPU instrumentation were added to the application.
+- Windows `38220321771` failed in a browser-test predicate because bare expression
+  strings invoked eval prohibited by the site's CSP. Runtime CSP was not weakened;
+  test predicates became explicit functions. At `26806624078f285e60a02a961cc72f03b1e82d00`,
+  Windows `38220685145` passed actual Edge interactions, update rollback and prior gates.
+- Final source `ddd1a80a05a68fa5ee5ccbc82496db7a98d87c83`: CI `38221276878`
+  SUCCESS; Windows `38221276930`, job `114717858440` SUCCESS. The real Edge gate
+  uses a fresh profile, a 390-pixel mobile viewport and exactly the synthetic leaf
+  public-key exception for QA; installed-CA TLS trust is separately checked by real
+  socket tests. No production certificate-warning bypass was introduced.
+- Real-browser assertions cover pairing, manga previous/next, decoded original image,
+  decoded cached card thumbnail, work-folder/video navigation, Natural Sort, search,
+  title sort, decoded video, pause/seek, inline controls, narrow-screen layout and
+  revocation. No page JS errors or external asset requests. Synthetic screenshot
+  inspected for Japanese labels, separate categories, cards and paging. This is
+  Windows Edge rendering, not a claim of actual Safari/iPhone validation.
+- Packaged EXE startup, baseline playback (11 frames, 35 audio buffers), work-cover
+  child extraction and verified local HTTPS probes all pass. Two correct work covers,
+  cache reuse and unchanged synthetic originals are confirmed. No keys/DB/media are
+  present in the application ZIP. Browser QA dependencies are development-only.
+- Artifact `11734890972`, outer ZIP SHA256
+  `54392e0cbfdb65642821677bf42011236a396431457fdde3c75c48bdef533640`.
+- Delivered revised offline ZIP: 6,564,389 bytes, SHA256
+  `f2468c6316acc0c747b6c2e2a926a3aa36cb3d298d58f9645efb9589c36c77af`.
+  It automatically recognizes either supported full application's hashes: 20
+  changed files from the cover build, 3 from the earlier iPhone candidate. Both
+  actual ZIP reconstructions exactly match the final application-file hashes.
+  Data/caches/certificates are preserved. Windows tests also prove rejected invalid
+  bases, rejected corrupt payloads, repeat application and restored original app
+  bytes after an injected later copy failure. The same distribution item was updated.
+
+## Remaining completion boundary
+
+No confirmed code defects remain from this audit's tested scope. Native codec security
+and actual normal-use outbound observation are not certified by an import check or
+browser asset interception; Qt's official nested-protocol restrictions were reviewed
+without broadening them: https://doc.qt.io/qt-6/advanced-ffmpeg-configuration.html
+
+The actual iPhone's certificate fingerprint inspection/safe transfer/trust setup,
+Safari rendering, actual saved-video codecs, physical audio and normal-use outbound
+observation remain unverified because neither the user's Windows nor iPhone is an
+available control surface here. Initial HTTP certificate transfer alone must not be
+accepted as proof of authenticity. No formal Codex Security service report or Phase 2
+real-device completion claim is made. No main merge; no original source mutations.

@@ -22,15 +22,19 @@ Next deliveries use validated changed-files-only updates, preserving data.
 
 ## Current checkpoint
 
-- Phase 2 opt-in mobile candidate (2026-10-12): read `docs/phase-2-audit.md` and
-  `docs/iphone-guide.md`. Separate local HTTPS module and mobile pages implemented,
-  PC-approved short-lived pairing/session, range streaming, existing cached covers,
-  no writes to originals. Runtime `eefe12f3` Windows `38215681248` and final offline
-  updater `4592a9f7` Windows `38216644558` SUCCESS, including PowerShell update tests
-  and packaged verified-TLS/mobile/startup/playback/cover probes. Delivered 20-file
-  6,535,530-byte delta for the previously delivered cover build; full base retained.
-  Actual Windows+iPhone certificate/bootstrap/browser/display/audio/outbound gate
-  remains pending; local browser rendering unavailable, no completion claim.
+- Phase 2 follow-up audited delivery (2026-10-12): read `docs/phase-2-audit.md`
+  and `docs/iphone-guide.md`. Three baseline failure cases reproduced and fixed:
+  request identity bound to PC approval, interrupted/mixed certificate recovery,
+  plus exclusive .cer export preventing any original-file overwrite. Mobile lazy
+  thumbnail attachment corrected; no new video-generation work. Final runtime
+  `ddd1a80a` CI `38221276878` and Windows `38221276930` SUCCESS, including real
+  Edge mobile-width UI, decoded cached thumbnail/image/video, manga/navigation,
+  search/sort/revoke, PowerShell rollback/multi-base updates and packaged probes.
+  Delivered revised 6,564,389-byte delta recognizes either prior cover build or
+  first iPhone candidate and preserves all data. Actual iPhone certificate transfer/
+  trust, Safari/physical audio/real codecs and outbound observation remain the gate;
+  do not claim real-device Phase 2 complete. Dedicated Security service unavailable,
+  no formal scan PASS claim. Keep distribution-file identity privately.
 
 - Representative video covers (2026-10-11): see `docs/video-work-cover-audit.md`.
   Visible work folders generate only one representative frame each through a
