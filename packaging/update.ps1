@@ -1,6 +1,11 @@
 param([string]$TargetDirectory, [switch]$NonInteractive)
 $ErrorActionPreference = 'Stop'
-function HashFile([string]$Path) { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+function HashFile([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $sha.Dispose() }
+}
 function SafePath([string]$Root, [string]$Relative) {
     if ([IO.Path]::IsPathRooted($Relative) -or $Relative -match '(^|[\\/])\.\.([\\/]|$)' -or $Relative -match '^(?i:data)([\\/]|$)') { throw 'Unsafe update path.' }
     $path = [IO.Path]::GetFullPath((Join-Path $Root $Relative))

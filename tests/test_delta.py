@@ -65,5 +65,7 @@ def test_windows_offline_update_and_data_preservation(tmp_path,scenario):
         assert subprocess.run(command,capture_output=True,timeout=30).returncode==0
     else:
         assert result.returncode!=0
+        expected=b'Unsupported or modified old version' if scenario=='wrong_old' else b'Damaged update file'
+        assert expected in result.stdout,result.stdout.decode(errors='replace')
         assert (target/'README.md').read_bytes()==before['README.md']
         assert not list(target.glob('_update-backup-*'))
