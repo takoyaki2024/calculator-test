@@ -14,7 +14,7 @@ Read-only roots: Manga | Mixed Image/Video
               Reader | Viewer | Player
 ```
 
-Only Core owns SQLite and source registration. Desktop pages call repositories and services. A mixed image/video source is classified by Scanner, then exposed through separate Image and Video repositories and pages. Playback consumes a `VideoItem`; it does not scan or mutate the library. A future Phase 2 LAN module may consume the same repository interfaces without importing Desktop UI.
+Only Core owns SQLite and source registration. Desktop pages call repositories and services. A mixed image/video source is classified by Scanner, then exposed through separate Image and Video repositories and pages. Playback consumes a `VideoItem`; it does not scan or mutate the library. The authorized optional Phase 2 LAN module consumes Core read-only catalog APIs without importing Desktop viewers.
 
 ## Original-file invariant
 
@@ -33,4 +33,4 @@ Scanner operations are limited to directory enumeration and metadata reads. Thum
 
 ## Local-only invariant
 
-Application runtime code does not import HTTP clients, sockets, web frameworks, analytics or update clients. CI may download development dependencies; the packaged application has no normal-use network feature.
+Windows-only mode opens no listener and needs no network. The optional `mobile/` module owns bounded inbound HTTPS and no outbound clients, discovery, update or analytics. Core `mobile_catalog.py` owns SQL; HTTP handlers only consume its read-only IDs/references. Assets are local. Desktop loads this module only on opening mobile settings; listening requires explicit ON. See `phase-2-audit.md` for authentication, certificate bootstrap and real-device gates.

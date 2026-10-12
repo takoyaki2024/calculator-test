@@ -54,6 +54,18 @@ jobs:
             exit $process.ExitCode
           }
           Get-Content dist/work-cover-probe.json
+      - name: Packaged verified local HTTPS mobile probe
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/LocalMediaLibrary/LocalMediaLibrary.exe").Path
+          $fixtures = (Resolve-Path "tests/fixtures").Path
+          $report = Join-Path (Resolve-Path "dist").Path "mobile-probe.json"
+          $process = Start-Process -FilePath $exe -ArgumentList @("--mobile-probe", $fixtures, "--probe-report", $report) -PassThru -Wait
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path dist/mobile-probe.json) { Get-Content dist/mobile-probe.json }
+            exit $process.ExitCode
+          }
+          Get-Content dist/mobile-probe.json
       - uses: actions/upload-artifact@v4
         with:
           name: LocalMediaLibrary-Windows
@@ -61,5 +73,6 @@ jobs:
             dist/LocalMediaLibrary-Windows.zip
             dist/video-probe.json
             dist/work-cover-probe.json
+            dist/mobile-probe.json
           retention-days: 7
           if-no-files-found: error

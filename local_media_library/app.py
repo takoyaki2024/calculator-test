@@ -20,7 +20,13 @@ def main(argv=None) -> int:
     parser.add_argument("--thumbnail-size", type=int)
     parser.add_argument("--thumbnail-mtime", type=int)
     parser.add_argument("--work-cover-probe", type=Path)
+    parser.add_argument("--mobile-probe", type=Path)
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    if args.mobile_probe:
+        if not args.probe_report:
+            parser.error("--probe-report is required with --mobile-probe")
+        from .mobile.probe import run_probe
+        return run_probe(args.mobile_probe.resolve(), args.probe_report.resolve())
     if args.thumbnail_worker:
         if args.thumbnail_cache is None or args.thumbnail_size is None or args.thumbnail_mtime is None:
             parser.error("thumbnail worker requires cache and source fingerprint")

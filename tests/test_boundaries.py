@@ -13,11 +13,12 @@ def imports(path: Path):
     return values
 
 
-def test_runtime_has_no_network_downloader_or_analytics_imports():
+def test_phase1_has_no_network_and_phase2_has_no_outbound_clients():
     forbidden = ("requests", "urllib", "httpx", "aiohttp", "socket", "fastapi", "flask", "analytics", "sentry")
-    for path in Path("local_media_library").glob("*.py"):
+    for path in Path("local_media_library").rglob("*.py"):
         used = imports(path)
-        assert not [name for name in used if name.split(".")[0] in forbidden], path
+        allowed = {"urllib", "socket"} if path == Path("local_media_library/mobile/server.py") else set()
+        assert not [name for name in used if name.split(".")[0] in forbidden and name.split(".")[0] not in allowed], path
 
 
 def test_ui_does_not_import_database_or_sqlite():

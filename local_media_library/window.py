@@ -95,6 +95,10 @@ class MainWindow(QMainWindow):
         self.image_page = LibraryPage("画像", self.images.list, image_sorts, self.thumbnails, "画像", load_page=self.images.page)
         self.video_page = VideoLibraryPage(self.videos, video_sorts, self.thumbnails)
         self.settings_page = SettingsPage(paths.data)
+        self.mobile_settings = None
+        mobile_button = QPushButton("iPhone閲覧の設定を開く")
+        mobile_button.clicked.connect(self.show_mobile_settings)
+        self.settings_page.layout().addWidget(mobile_button)
         self.manga_reader = MangaReader(self.mangas)
         self.image_viewer = ImageViewer()
         self.video_player = VideoPlayer(self.videos)
@@ -119,6 +123,23 @@ class MainWindow(QMainWindow):
         self.settings_page.scan_requested.connect(self.scan_all)
         self.dirty_pages = {self.manga_page, self.image_page, self.video_page}
         QTimer.singleShot(0, self._startup)
+
+    def show_mobile_settings(self):
+        if self.mobile_settings is None:
+            from .mobile.settings import MobileSettings
+            from PySide6.QtWidgets import QScrollArea
+            self.mobile_settings = MobileSettings(self.database, self.paths.data)
+            self.mobile_page = QWidget()
+            layout = QVBoxLayout(self.mobile_page)
+            back = QPushButton("設定に戻る")
+            back.clicked.connect(lambda: self.show_page(self.settings_page))
+            layout.addWidget(back)
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(self.mobile_settings)
+            layout.addWidget(scroll)
+            self.stack.addWidget(self.mobile_page)
+        self.show_page(self.mobile_page)
 
     def _startup(self):
         if self.closing:
@@ -226,6 +247,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         self.closing = True
         self.cache_timer.stop()
+        if self.mobile_settings is not None:
+            self.mobile_settings.stop()
         self.video_player.stop()
         for page in (self.manga_page, self.image_page, self.video_page):
             page.generation += 1

@@ -11,7 +11,22 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 - Source registration has two categories: Manga, and mixed Image/Video. Scanner classifies the latter into separate Image and Video libraries. Manga, Image and Video have separate pages, models, repositories and type-specific viewers. Desktop UI uses Core APIs, never SQL.
 - LAN/iPhone is a later Phase 2 and must not block or enter Phase 1.
 
+## Phase 2 authorization — 2026-10-12
+
+The user explicitly accepted adding iPhone viewing over home Wi-Fi with HTTPS and
+PC-approved-device authorization. This supersedes only the Phase 1 prohibition on
+LAN/iPhone implementation; read-only originals, no external services/downloaders,
+no private data in Git remain LOCKED. Optional mobile module starts OFF and is
+loaded only on opening mobile settings. See `docs/phase-2-audit.md`.
+Next deliveries use validated changed-files-only updates, preserving data.
+
 ## Current checkpoint
+
+- Phase 2 opt-in mobile candidate (2026-10-12): read `docs/phase-2-audit.md` and
+  `docs/iphone-guide.md`. Separate local HTTPS module and mobile pages implemented,
+  PC-approved short-lived pairing/session, range streaming, existing cached covers,
+  no writes to originals. Local verified-TLS integration passed; Windows build
+  and actual Windows+iPhone certificate/bootstrap/display/audio remain pending.
 
 - Representative video covers (2026-10-11): see `docs/video-work-cover-audit.md`.
   Visible work folders generate only one representative frame each through a

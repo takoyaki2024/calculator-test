@@ -7,7 +7,7 @@ name = "local-media-library"
 version = "0.1.0"
 description = "Local-only Windows library and viewer for saved manga, images, and video"
 requires-python = ">=3.11"
-dependencies = ["PySide6>=6.8,<7"]
+dependencies = ["PySide6>=6.8,<7", "cryptography>=45,<51"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "pytest-cov>=5,<8", "pyinstaller>=6.11,<7"]
@@ -21,3 +21,6 @@ include = ["local_media_library*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.setuptools.package-data]
+"local_media_library.mobile" = ["*.html", "*.js", "*.css"]

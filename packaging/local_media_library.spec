@@ -10,7 +10,7 @@ if OUTPUT.exists() or ARCHIVE.exists():
 a = Analysis(
     [str(ROOT / "local_media_library" / "__main__.py")],
     pathex=[str(ROOT)],
-    binaries=[], datas=[], hiddenimports=[], hookspath=[], hooksconfig={},
+    binaries=[], datas=[(str(ROOT / "local_media_library" / "mobile" / name), "local_media_library/mobile") for name in ("index.html", "app.js", "style.css")], hiddenimports=[], hookspath=[], hooksconfig={},
     runtime_hooks=[], excludes=[], noarchive=False,
 )
 pyz = PYZ(a.pure)
