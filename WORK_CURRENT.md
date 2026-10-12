@@ -2,7 +2,7 @@
 
 This is the continuation entrypoint for the Local Media Library project. Read this file, then `docs/stage-0-audit.md`, `docs/architecture.md`, and `docs/test-matrix.md` before changing code.
 
-## Product boundary — LOCKED
+## Product boundary — LOCKED (Phase 1 baseline; authorized Phase 2 exception below)
 
 - Windows Phase 1 is a completely local Library + Viewer for already-saved manga, images and videos.
 - It has no downloader, browser extension, receiver, updater, cloud/API/login, telemetry, advertising, analytics, automatic crash upload, LAN server or iPhone UI.
@@ -14,8 +14,8 @@ This is the continuation entrypoint for the Local Media Library project. Read th
 ## Phase 2 authorization — 2026-10-12
 
 The user explicitly accepted adding iPhone viewing over home Wi-Fi with HTTPS and
-PC-approved-device authorization. This supersedes only the Phase 1 prohibition on
-LAN/iPhone implementation; read-only originals, no external services/downloaders,
+PC-approved-device authorization. This permits only explicitly enabled local
+transmission to the approved phone and supersedes the earlier LAN/iPhone deferral; read-only originals, no external services/downloaders,
 no private data in Git remain LOCKED. Optional mobile module starts OFF and is
 loaded only on opening mobile settings. See `docs/phase-2-audit.md`.
 Next deliveries use validated changed-files-only updates, preserving data.
@@ -25,8 +25,12 @@ Next deliveries use validated changed-files-only updates, preserving data.
 - Phase 2 opt-in mobile candidate (2026-10-12): read `docs/phase-2-audit.md` and
   `docs/iphone-guide.md`. Separate local HTTPS module and mobile pages implemented,
   PC-approved short-lived pairing/session, range streaming, existing cached covers,
-  no writes to originals. Local verified-TLS integration passed; Windows build
-  and actual Windows+iPhone certificate/bootstrap/display/audio remain pending.
+  no writes to originals. Runtime `eefe12f3` Windows `38215681248` and final offline
+  updater `4592a9f7` Windows `38216644558` SUCCESS, including PowerShell update tests
+  and packaged verified-TLS/mobile/startup/playback/cover probes. Delivered 20-file
+  6,535,530-byte delta for the previously delivered cover build; full base retained.
+  Actual Windows+iPhone certificate/bootstrap/browser/display/audio/outbound gate
+  remains pending; local browser rendering unavailable, no completion claim.
 
 - Representative video covers (2026-10-11): see `docs/video-work-cover-audit.md`.
   Visible work folders generate only one representative frame each through a
@@ -112,7 +116,7 @@ Next deliveries use validated changed-files-only updates, preserving data.
 - Image/manga thumbnails decode at reduced size, regenerate from originals and use a bounded disposable cache.
 - Video thumbnails decode one frame through Qt Multimedia.
 - Synthetic MP4 H.264/AAC probe requires decoded video frames and audio buffers, pause, seek, saved-position reopen and fullscreen state.
-- Runtime source has no downloader/network/analytics imports. This static check is not the final Windows network observation.
+- Phase 1 modules have no downloader/outbound-network/analytics clients. Opt-in Phase 2 owns inbound local HTTPS. Static checks do not replace real normal-use connection observation.
 
 ## Stop/gate
 

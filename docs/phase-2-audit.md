@@ -67,3 +67,41 @@ Desktop layout. Scanner/schema/desktop viewers were not rewritten. No database
 migration or new video decoding/transcoding worker was added. Session/cookie and
 certificate keys are excluded from Git/package; shared/network drive references
 are not published. Certificate signing root key is discarded after generation.
+
+## Final automated/package delivery evidence
+
+- Local: 57 passed, 1 Windows-only skip for app/mobile source; offline delta
+  roundtrip additionally passes (3 Windows updater cases skipped on Linux).
+- Runtime commit `eefe12f3e53729a8002536e59f92abf1f295bac0`, tree
+  `135ccc8c49dc3fe92052e93a073a2ace85a04a3e`: CI `38215681242` SUCCESS,
+  Windows package `38215681248` SUCCESS. Startup, H.264/AAC (11 video frames,
+  35 audio buffers), work-cover worker and verified-TLS mobile probes all pass.
+  Artifact `11732297438`, outer SHA256
+  `77dc4a731465f76dc7d1065f9189d33ef5f70d91a113e256233e18cff6f910a2`.
+  Packaged mobile probe proves authorization/ranges/revoke/unchanged originals.
+- Offline update commit `c58a0bc88b02a1dd660e00f3d17df88247b19ac0`
+  failed Windows `38216370655` at the apply test: Windows PowerShell child could
+  not load `Get-FileHash` in the runner environment. Library/network/media probes
+  had already passed at the runtime commit. No failed update was delivered.
+  Small fix replaces only that hash cmdlet with .NET SHA256; rejection tests now
+  require their specific rejection reason, so unrelated failures cannot count as PASS.
+- Final update source `4592a9f703e58c275ae91d8a773e51cf10e7d614`, CI
+  `38216644609` SUCCESS; Windows `38216644558`, job `114702831386` SUCCESS.
+  Actual Windows PowerShell tests cover apply, retained data, application-file
+  backups, repeat apply, wrong-old-version rejection and corrupt-payload rejection.
+  Full app startup/playback/cover/HTTPS probes also passed again. Runtime module
+  code/assets are unchanged from the earlier runtime artifact used for this delta.
+- Delta is 20 changed application files, 6,535,530 bytes. SHA256
+  `09670b78f7aee3cbd2c38dcc8262913d09f15abaa365928437f505062098db48`.
+  Built from the authoritative previously delivered 60,646,752-byte cover build
+  and the validated new runtime. No data/keys/media are included. Applying its
+  payload offline reconstructs every new application-file hash exactly.
+- The delta is a separate `LocalMediaLibrary-iPhone-Update.zip`; the previous full
+  release remains the supported base. Future updates must identify supported
+  base application hashes. Distribution-file identity is kept privately, not in Git.
+- Browser end-to-end rendering remains unverified: local Chromium acquisition
+  returned truncated archives; the QtWebEngine fallback lacks libXtst in this
+  execution environment. Neither failure was treated as a mobile UI PASS.
+  Actual iPhone certificate fingerprint inspection/bootstrap, verified Safari
+  connection, visibility, audio/seek and normal-use outbound observation still
+  require the real Windows+iPhone. Do not mark Phase 2 complete or merge main.
